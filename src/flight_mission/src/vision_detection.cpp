@@ -74,30 +74,30 @@ bool onFrame(float t_yaw, double err_max) {
     return true;
 }
 
-bool detectGrayRingAndThrow(float throw_yaw, double err_max) {
+bool detectBlackSquareAndThrow(float throw_yaw, double err_max) {
     // 1. 输入校验：图像帧为空直接返回失败
     if (current_frame.empty()) {
-        ROS_ERROR("[detectGrayRingAndThrow] 输入图像帧为空，灰环检测失败");
+        ROS_ERROR("[detectBlackSquareAndThrow] 输入图像帧为空，灰环检测失败");
         return false;
     }
 
-    // 2. 核心：仅检测灰色圆环（复用原有灰环检测逻辑）
-    cv::Point gray_center;   // 灰环中心坐标
-    cv::Rect gray_rect;      // 灰环包围矩形
-    int gray_radius = 0;     // 灰环半径
-    if (!findGrayRingCenter(current_frame, gray_center, gray_rect, gray_radius)) {
-        ROS_WARN("[detectGrayRingAndThrow] 未检测到灰色圆环，投掷失败");
+    // 2. 核心：仅检测黑色框（复用黑框检测逻辑）
+    cv::Point black_center;   // 中心坐标
+    cv::Rect black_rect;      // 包围矩形
+    float angle=0;     // 角度
+    if (!findBlackSquare(current_frame,black_center,  black_rect, angle)) {
+        ROS_WARN("[detectBlackSquareAndThrow] 未检测到黑色框，投掷失败");
         return false;
     }
 
     // 4. 转换坐标（像素坐标→无人机世界坐标，适配throwObject入参）
-    geometry_msgs::Point target_pos = change_to_world(gray_center.x, gray_center.y);
+    geometry_msgs::Point target_pos = change_to_world(black_center.x, black_center.y);
 
     // 5. （传入灰环中心+偏航角+误差阈值）
     throw_pos = {target_pos.x, target_pos.y};
     isThrow = true;
 
-    ROS_INFO("[detectGrayRingAndThrow] 调用投掷函数 | 靶标位置：(%.2f,%.2f) | 目标偏航：%.2f | 误差阈值：%.2f",
+    ROS_INFO("[detectBlackSquareAndThrow] 调用投掷函数 | 靶标位置：(%.2f,%.2f) | 目标偏航：%.2f | 误差阈值：%.2f",
              throw_pos.x,throw_pos.y, throw_yaw, err_max);
 
     // 6. 返回成功
@@ -118,6 +118,7 @@ cv::Mat getColorMask(const cv::Mat& frame, const cv::Scalar& low, const cv::Scal
     return mask;
 }
 
+//找灰环，可删去
 bool findGrayRingCenter(const cv::Mat& frame, cv::Point& center, cv::Rect& gray_rect, int& radius) {
     cv::Mat gray_mask = getColorMask(frame, GRAY_LOW, GRAY_HIGH);
     
@@ -144,68 +145,100 @@ bool findGrayRingCenter(const cv::Mat& frame, cv::Point& center, cv::Rect& gray_
     gray_rect = cv::boundingRect(max_gray_cnt);
     radius = std::max(gray_rect.width, gray_rect.height) / 2;
 
+
+    if (gray_rect.width > 0 && gray_rect.height > 0) {
+        // 2. 从原图 frame 中截取该矩形区域
+        // 注意：gray_rect 是基于 frame 坐标的，可以直接使用
+        cv::Mat roi = frame(gray_rect).clone(); // .clone() 确保数据独立
+        
+        // 3. 保存图片到文件
+        // 这里使用了时间戳来防止文件名重复，或者你可以用一个静态计数器
+        static int gray_count = 0;
+        std::string filename = "/home/jetson/first_task_ws/src/flight_mission/data/gray_ring_" + std::to_string(gray_count++) + ".jpg";
+        
+        // 使用 OpenCV 保存
+        bool success = cv::imwrite(filename, roi);
+        
+        if (success) {
+            ROS_INFO("[findGrayRingCenter] 成功保存灰色圆环图片 | 文件名：%s ", 
+                     filename.c_str());
+        } else {
+            ROS_WARN("[findGrayRingCenter] 保存图片失败，可能是磁盘权限问题");
+        }
+    }
+
+
     return true;
 }
 
-bool findBlackSquareAroundCenter(const cv::Mat& frame, const cv::Point& gray_center, int search_radius,
-                                cv::Rect& black_square, float& angle) {
-    int h = frame.rows;
-    int w = frame.cols;
+/*
+在全图范围内检测黑色方框
+ */
+bool findBlackSquare(const cv::Mat& frame, cv::Point& black_center, cv::Rect& black_rect, float& angle) {
+    // 1. 颜色过滤：找黑色
+    cv::Mat black_mask = getColorMask(frame, BLACK_LOW, BLACK_HIGH);
+    
+    // 2. 形态学处理（去噪）
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, MORPHO_KERNEL);
+    cv::morphologyEx(black_mask, black_mask, cv::MORPH_CLOSE, kernel);
+    cv::morphologyEx(black_mask, black_mask, cv::MORPH_OPEN, kernel);
 
-    int search_x1 = std::max(0, gray_center.x - search_radius);
-    int search_y1 = std::max(0, gray_center.y - search_radius);
-    int search_x2 = std::min(w, gray_center.x + search_radius);
-    int search_y2 = std::min(h, gray_center.y + search_radius);
-    cv::Mat search_roi = frame(cv::Rect(search_x1, search_y1, search_x2 - search_x1, search_y2 - search_y1));
-    if (search_roi.empty()) return false;
-
-    cv::Mat black_mask = getColorMask(search_roi, BLACK_LOW, BLACK_HIGH);
+    // 3. 轮廓查找
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(black_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-    if (contours.empty()) return false;
+    
+    if (contours.empty()) {
+        return false;
+    }
 
+    // 4. 筛选最大轮廓
     int max_idx = 0;
-    double max_area = 0.0;
-    for (int i = 0; i < contours.size(); ++i) {
+    double max_area = cv::contourArea(contours[0]);
+    for (int i = 1; i < contours.size(); ++i) {
         double area = cv::contourArea(contours[i]);
         if (area > max_area) {
             max_area = area;
             max_idx = i;
         }
     }
+
+    // 面积过小过滤
+    if (max_area < 100) { // 阈值可根据实际情况调整
+        return false;
+    }
+
     std::vector<cv::Point> max_black_cnt = contours[max_idx];
 
+    // 5. 计算角度 (Angle Calculation)
+    // 复用原函数逻辑：计算凸包 -> 多边形逼近 -> 计算第一条边的角度
     std::vector<cv::Point> hull;
     cv::convexHull(max_black_cnt, hull);
     double epsilon = APPROX_EPSILON * cv::arcLength(hull, true);
     std::vector<cv::Point> approx;
     cv::approxPolyDP(hull, approx, epsilon, true);
 
-    std::vector<cv::Point> approx_abs;
-    for (const auto& p : approx) {
-        approx_abs.emplace_back(p.x + search_x1, p.y + search_y1);
-    }
-
-    int x1 = search_x1, y1 = search_y1, x2 = search_x2, y2 = search_y2;
-    if (!approx_abs.empty()) {
-        x1 = std::min_element(approx_abs.begin(), approx_abs.end(), 
-            [](const cv::Point& a, const cv::Point& b) { return a.x < b.x; })->x;
-        y1 = std::min_element(approx_abs.begin(), approx_abs.end(), 
-            [](const cv::Point& a, const cv::Point& b) { return a.y < b.y; })->y;
-        x2 = std::max_element(approx_abs.begin(), approx_abs.end(), 
-            [](const cv::Point& a, const cv::Point& b) { return a.x < b.x; })->x;
-        y2 = std::max_element(approx_abs.begin(), approx_abs.end(), 
-            [](const cv::Point& a, const cv::Point& b) { return a.y < b.y; })->y;
-    }
-    black_square = cv::Rect(x1, y1, x2 - x1, y2 - y1);
-
     angle = 0.0f;
-    if (approx.size() >= 4) {
+    if (approx.size() >= 4) { // 确保有足够的点
         cv::Point p1 = approx[0];
         cv::Point p2 = approx[1];
         float dx = p2.x - p1.x;
         float dy = p2.y - p1.y;
-        angle = atan2(dy, dx) * 180.0f / CV_PI;
+        angle = atan2(dy, dx) * 180.0f / CV_PI; // 转换为角度制
+    }
+
+    // 6. 计算外接矩形和中心点
+    black_rect = cv::boundingRect(max_black_cnt);
+    black_center.x = black_rect.x + black_rect.width / 2;
+    black_center.y = black_rect.y + black_rect.height / 2;
+
+    // 7. 【可选】保存调试图片
+    if (black_rect.width > 0 && black_rect.height > 0) {
+        cv::Mat roi = frame(black_rect).clone();
+        static int special_count = 0;
+        std::string filename = "/home/jetson/first_task_ws/src/flight_mission/data/special_target_" + std::to_string(special_count++) + ".jpg";
+        cv::imwrite(filename, roi);
+        ROS_INFO("[findBlackSquare] 检测到黑框 | 中心:(%d,%d) 宽高:(%d,%d) 角度:%.2f", 
+                 black_center.x, black_center.y, black_rect.width, black_rect.height, angle);
     }
 
     return true;
@@ -215,50 +248,28 @@ bool findInnerImageRect(const cv::Mat& frame, const cv::Point& gray_center, cons
                        cv::Rect& inner_img_rect) {
     if (black_square.empty()) return false;
 
-    cv::Mat square_roi = frame(black_square);
-    cv::Mat white_mask = getColorMask(square_roi, WHITE_LOW, WHITE_HIGH);
-    std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(white_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    // ====================== ✅ 比例系数在这里！直接改这个数字！
+    float scale = 0.25f;  // 0.35 = 缩小到35%，想大就改0.4，想小改0.3
+    
+    // 等比例缩小（用上面的 scale）
+    int img_size = static_cast<int>(black_square.width * scale);
 
-    if (contours.empty()) {
-        int img_size = static_cast<int>(black_square.width * INNER_IMG_SCALE);
-        inner_img_rect = cv::Rect(
-            std::max(0, gray_center.x - img_size / 2),
-            std::max(0, gray_center.y - img_size / 2),
-            img_size,
-            img_size
-        );
-        inner_img_rect &= cv::Rect(0, 0, frame.cols, frame.rows);
-        return true;
-    }
-
-    int max_idx = 0;
-    double max_area = 0.0;
-    for (int i = 0; i < contours.size(); ++i) {
-        double area = cv::contourArea(contours[i]);
-        if (area > max_area) {
-            max_area = area;
-            max_idx = i;
-        }
-    }
-    cv::Rect white_rect = cv::boundingRect(contours[max_idx]);
-    cv::Rect white_rect_abs = cv::Rect(
-        black_square.x + white_rect.x,
-        black_square.y + white_rect.y,
-        white_rect.width,
-        white_rect.height
-    );
-    int wc_x = white_rect_abs.x + white_rect_abs.width / 2;
-    int wc_y = white_rect_abs.y + white_rect_abs.height / 2;
-    int img_w = static_cast<int>(white_rect_abs.width * INNER_IMG_SCALE);
-    int img_h = static_cast<int>(white_rect_abs.height * INNER_IMG_SCALE);
     inner_img_rect = cv::Rect(
-        std::max(0, wc_x - img_w / 2),
-        std::max(0, wc_y - img_h / 2),
-        img_w,
-        img_h
+        std::max(0, gray_center.x - img_size / 2),
+        std::max(0, gray_center.y - img_size / 2),
+        img_size,
+        img_size
     );
+
     inner_img_rect &= cv::Rect(0, 0, frame.cols, frame.rows);
+
+    // 保存图片逻辑不变
+    if (inner_img_rect.width > 0 && inner_img_rect.height > 0) {
+        cv::Mat img_roi = frame(inner_img_rect).clone();
+        static int img_count = 0;
+        std::string filename = "/home/jetson/first_task_ws/src/flight_mission/data/center_img_" + std::to_string(img_count++) + ".jpg";
+        cv::imwrite(filename, img_roi);
+    }
 
     return true;
 }
@@ -344,29 +355,23 @@ UavDetectResult detectUavTarget() {
     UavDetectResult result;
     if (current_frame.empty()) return result;
 
-    // 步骤1：找灰色圆环
-    cv::Point gray_center;
-    cv::Rect gray_rect;
-    int gray_radius = 0;
-    if (!findGrayRingCenter(current_frame, gray_center, gray_rect, gray_radius)) {
-        return result;
+    // 步骤1：找黑色正方形
+        cv::Point black_center; 
+    cv::Rect black_square;    
+    float square_angle = 0.0f; 
+    
+     if (!findBlackSquare(current_frame, black_center, black_square, square_angle)) {
+        ROS_WARN("[detectUavTarget] findBlackSquare 失败 | 未找到全图黑色方框");
+        return result; 
     }
 
-    // 步骤2：找黑色正方形
-    cv::Rect black_square;
-    float square_angle = 0.0f;
-    int search_radius = static_cast<int>(gray_radius * SEARCH_RADIUS_SCALE);
-    if (!findBlackSquareAroundCenter(current_frame, gray_center, search_radius, black_square, square_angle)) {
-        return result;
-    }
-
-    // 步骤3：定位中心图片
+    // 步骤2：定位中心图片
     cv::Rect inner_img_rect;
-    if (!findInnerImageRect(current_frame, gray_center, black_square, inner_img_rect)) {
+    if (!findInnerImageRect(current_frame, black_center, black_square, inner_img_rect)) {
         return result;
     }
 
-    // 步骤4：调用ONNX分类函数
+    // 步骤3：调用ONNX分类函数
     std::string cls_name;
     float conf = 0.0f;
     if (preciseClassify(current_frame, inner_img_rect, cls_name, conf)) {
@@ -376,7 +381,7 @@ UavDetectResult detectUavTarget() {
 
     // 填充结果
     result.is_detected = true;
-    result.gray_ring_center = gray_center;
+    result.gray_ring_center = black_center;
     result.black_square = black_square;
     result.square_angle = square_angle;
     result.inner_image_rect = inner_img_rect;
@@ -529,4 +534,3 @@ std::string decodeQRCode(const cv::Mat& frame) {
     ROS_INFO("[decodeQRCode] QR码解码完成 | 解码结果：%s", result.c_str());
     return result;
 }
-

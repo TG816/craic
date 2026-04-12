@@ -15,7 +15,6 @@ float if_debug = 0;
 float err_max = 0.2;
 bool delay = false;
 ros::Time last_request;
-bool test_ego = true;//=====================================================
 void print_param()
 {
     std::cout << "=== 控制参数 ===" << std::endl;
@@ -42,7 +41,6 @@ void Delay(float delay_time)
             ROS_INFO("延时结束");
             delay = false;
             mission_num += 1;
-            ego_check = false;
         }
     }
     else
@@ -74,20 +72,6 @@ int main(int argc, char **argv)
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
     ros::ServiceClient ctrl_pwm_client = nh.serviceClient<mavros_msgs::CommandLong>("mavros/cmd/command");
-
-    // ==================== EGO 初始化 ====================
-    
-    // 订阅pub_ego_goal规划出来的结果
-    ros::Subscriber ego_sub = nh.subscribe("/position_cmd", 100, ego_sub_cb);
-
-    // 发布pub_ego_goal目标
-    planner_goal_pub = nh.advertise<geometry_msgs::PoseStamped>("/ego_planner/goal", 100);
-
-    ros::Subscriber rec_traj_sub = nh.subscribe("/rec_traj", 100, rec_traj_cb);
-
-    finish_ego_pub = nh.advertise<std_msgs::Bool>("/finish_ego", 1);
-    // =====================================================
-
 
     // 设置话题发布频率，需要大于2Hz，飞控连接有500ms的心跳包
     ros::Rate rate(20);
@@ -213,46 +197,13 @@ int main(int argc, char **argv)
         switch (mission_num)
         {
         case 1:  //起飞
-            if (pub_ego_goal(0, 0, 1.2, ego_err_max))
+            if (mission_pos_cruise(0, 0, ALTITUDE, 0, err_max))
             {
                 Delay(DELAY);
             }
             break;
-
-        //=======================测试===========================
-        
-        // case 2:
-        //     if (pub_ego_goal(4.0, 0, 1.2, ego_err_max))
-        //     {
-        //         Delay(0.5);
-        //     }
-        //     break;
-        
-        // case 3:
-        //     if (pub_ego_goal(2.0, -5.0, 1.2, ego_err_max))
-        //     {
-        //         Delay(0.5);
-        //     }
-        //     break;
-        
-        // case 4:
-        //     if (pub_ego_goal(0.0, 0.0, 1.2, ego_err_max))
-        //     {
-        //         Delay(3);
-        //     }
-        //     break;
-        
-        // case 5:
-        //     if (precision_land())
-        //     {
-        //         mission_num = -1;
-        //     }
-        //     break;
-        
-        //=======================测试==============================
-        
         case 2: //前进1米8 (1个我的距离)
-            if (pub_ego_goal(1.8, 0, 0.5,err_max))
+            if (collision_avoidance_mission(1.8, 0, 0.5, 0, err_max))
             {
                 Delay(0.5);
             }
@@ -268,7 +219,7 @@ int main(int argc, char **argv)
             //此处保留了原来的逻辑，需要对比时方便修改。
 
         case 4: // 准备转圈
-            if (pub_ego_goal(3.7, 0.6, ALTITUDE, err_max))
+            if (collision_avoidance_mission(3.7, 0.6, ALTITUDE, 0, err_max))
             {
                 Delay(0.5);
             }
@@ -282,7 +233,7 @@ int main(int argc, char **argv)
             break;
         */
         case 4: //准备转圈
-            if (pub_ego_goal(3.5, 0, ALTITUDE, err_max))
+            if (collision_avoidance_mission(3.5, 0, ALTITUDE, LEFT, err_max))
             {
                 Delay(0.5);
             }
@@ -308,7 +259,7 @@ int main(int argc, char **argv)
             break;
 
         case 6:
-            if (pub_ego_goal(3.6, 1.6, ALTITUDE, err_max))
+            if (collision_avoidance_mission(3.6, 1.6, ALTITUDE, 0, err_max))
             {
                 Delay(2);
             }
@@ -346,7 +297,7 @@ int main(int argc, char **argv)
             break;
         
         case 11:
-            if (pub_ego_goal(1.8, 1.6, ALTITUDE, err_max))
+            if (collision_avoidance_mission(1.8, 1.6, ALTITUDE, 0, err_max))
             {
                 Delay(2);
             }
@@ -383,7 +334,7 @@ int main(int argc, char **argv)
             break;
 
         case 16:
-            if (pub_ego_goal(1.8, -1.6, ALTITUDE, err_max))
+            if (collision_avoidance_mission(1.8, -1.6, ALTITUDE, 0, err_max))
             {
                 Delay(2);
             }
@@ -420,7 +371,7 @@ int main(int argc, char **argv)
             break;
 
         case 21:
-            if (pub_ego_goal(3.6, -1.6, ALTITUDE, err_max))
+            if (collision_avoidance_mission(3.6, -1.6, ALTITUDE, 0, err_max))
             {
                 Delay(2);
             }
@@ -459,14 +410,14 @@ int main(int argc, char **argv)
         //-------------------由此进入穿环模块-----------------------
 
         case 26:
-            if (pub_ego_goal(6.0, -2.4, ALTITUDE, err_max))
+            if (collision_avoidance_mission(6.0, -2.4, ALTITUDE, 0, err_max))
             {
                 Delay(DELAY);
             }
             break;
 
         case 27:
-            if (pub_ego_goal(6.0,-2.4, RING_ALTITUDE,  err_max))
+            if (collision_avoidance_mission(6.0,-2.4, RING_ALTITUDE, LEFT, err_max))
             {
                 Delay(0.2);
             }
@@ -480,21 +431,21 @@ int main(int argc, char **argv)
             break;
 
         case 29:
-            if (pub_ego_goal(6.0, 1.0, ALTITUDE, err_max))
+            if (collision_avoidance_mission(6.0, 1.0, ALTITUDE, LEFT, err_max))
             {
                 Delay(1.0);
             }
             break;
 
         case 30:
-            if (detectGrayRingAndThrow(LEFT, err_max))
+            if (detectBlackSquareAndThrow(LEFT, err_max))
             {
                 Delay(DELAY);
             }
             break;
 
         case 31:
-            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, LOW_ALTITUDE, 0, err_max))
+            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, LOW_ALTITUDE,LEFT, err_max))
             {
                 Delay(1.0);
             }
@@ -516,19 +467,19 @@ int main(int argc, char **argv)
             break;
 
         case 34:
-            if (pub_ego_goal(3.5, 1.0, ALTITUDE, err_max))
+            if (collision_avoidance_mission(3.5, 1.0, ALTITUDE, LEFT, err_max))
             {
                 Delay(DELAY);
             }
             break;
         case 35:
-            if (pub_ego_goal(0, 1.6 * H_direction, ALTITUDE, err_max))
+            if (collision_avoidance_mission(0, 1.6 * H_direction, ALTITUDE, LEFT, err_max))
             {
                 Delay(0.2);
             }
             break;
         case 36:
-            if (pub_ego_goal(0, 1.6 * H_direction,0.5, err_max))
+            if (collision_avoidance_mission(0, 1.6 * H_direction,0.5, 0, err_max))
             {
                 Delay(DELAY);
             }
@@ -540,9 +491,6 @@ int main(int argc, char **argv)
                 mission_num = -1;
             }
             break;
-
-        //非测试情况
-
         }
         mavros_setpoint_pos_pub.publish(setpoint_raw);
         ros::spinOnce();
