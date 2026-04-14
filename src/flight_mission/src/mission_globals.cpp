@@ -66,7 +66,7 @@ const bool USE_GPU = false;              // 是否使用GPU推理
 const cv::Scalar GRAY_LOW = cv::Scalar(0, 0, 100);
 const cv::Scalar GRAY_HIGH = cv::Scalar(180, 50, 200);
 const cv::Scalar BLACK_LOW = cv::Scalar(0, 0, 0);
-const cv::Scalar BLACK_HIGH = cv::Scalar(180, 255, 50);
+const cv::Scalar BLACK_HIGH = cv::Scalar(180, 255, 90);
 const cv::Scalar WHITE_LOW = cv::Scalar(0, 0, 200);
 const cv::Scalar WHITE_HIGH = cv::Scalar(180, 50, 255);
 

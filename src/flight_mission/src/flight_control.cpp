@@ -298,6 +298,7 @@ bool Circle_around(int counts, float times, float z_h, float v0, float v1, float
 }
 
 bool throwObject(){
+    // TODO
     //投掷
     ROS_INFO("开始投掷，投掷位置：%f %f",local_pos.pose.pose.position.x,local_pos.pose.pose.position.y);
     //暂时空着具体动作

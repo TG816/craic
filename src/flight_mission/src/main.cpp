@@ -199,7 +199,8 @@ int main(int argc, char **argv)
         case 1:  //起飞
             if (mission_pos_cruise(0, 0, ALTITUDE, 0, err_max))
             {
-                Delay(DELAY);
+                //Delay(DELAY);
+                mission_num = 37;
             }
             break;
         case 2: //前进1米8 (1个我的距离)
