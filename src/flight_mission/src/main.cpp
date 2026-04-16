@@ -206,14 +206,14 @@ int main(int argc, char **argv)
                 //mission_num = 37;
             }
             break;
-        // case 2: //前进1米8 (1个我的距离)
-        //     if (collision_avoidance_mission(1.8, 0, 0.5, 0, err_max))
-        //     {
-        //         Delay(0.5);
-        //     }
-        //     break;
+        case 2: //前进1米8 (1个我的距离)
+            if (collision_avoidance_mission(6.0, -2.4, ALTITUDE, 0, err_max))
+            {
+                Delay(0.5);
+            }
+            break;
 
-        case 2: //穿环
+        case 3: //穿环
             if(execute_universal_crossing(err_max))
             {
                 //Delay(0.5);
@@ -221,7 +221,7 @@ int main(int argc, char **argv)
             }
             break;
 
-        case 3: //扫码
+        case 4: //扫码
             if (detectQRCodeAndExtractInfo())
             {
                 mission_num = 4; // 理论上完全可以Delay(0);
@@ -231,7 +231,7 @@ int main(int argc, char **argv)
 
             //此处保留了原来的逻辑，需要对比时方便修改。
 
-        case 4: // 准备转圈
+        case 99: // 准备转圈
             if (collision_avoidance_mission(3.7, 0.6, ALTITUDE, 0, err_max))
             {
                 Delay(0.5);
