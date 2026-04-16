@@ -15,6 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
   livox_ros_driver
   visualization_msgs
   #quadrotor_msgs
+  cloud_recognition
+  ring_detector
 )
 
 find_package(OpenCV 4 REQUIRED COMPONENTS core highgui imgproc imgcodecs objdetect dnn)
@@ -44,6 +46,7 @@ find_library(QR_LIBRARY
 
 catkin_package(
   INCLUDE_DIRS include
+  CATKIN_DEPENDS cloud_recognition ring_detector
 )
 
 # 头文件包含

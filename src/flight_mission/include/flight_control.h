@@ -2,6 +2,8 @@
 #define FLIGHT_CONTROL_H
 
 #include "mission_header.h"
+#include "ring_detection.h"
+
 
 /************************************************************************
 飞控控制函数声明
@@ -13,4 +15,7 @@ void fly(float v);
 bool Circle_around(int counts, float times, double err_max);
 bool Circle_around(int counts, float times, float z_h, float v0, float v1, float cx, float cy, float r_of_c, float err_max);
 bool throwObject();
+bool execute_universal_crossing(float err_max);
+
+
 #endif

@@ -73,6 +73,9 @@ int main(int argc, char **argv)
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
     ros::ServiceClient ctrl_pwm_client = nh.serviceClient<mavros_msgs::CommandLong>("mavros/cmd/command");
 
+    // 新的多障碍物检测回调注册
+    ros::Subscriber obstacles_detection_sub = nh.subscribe<cloud_recognition::Detection3DWithIDArray>("all_plane_3d_detections", 10, obstacles_detection_cb);
+
     // 设置话题发布频率，需要大于2Hz，飞控连接有500ms的心跳包
     ros::Rate rate(20);
 
@@ -199,16 +202,25 @@ int main(int argc, char **argv)
         case 1:  //起飞
             if (mission_pos_cruise(0, 0, ALTITUDE, 0, err_max))
             {
-                //Delay(DELAY);
+                Delay(DELAY);
+                //mission_num = 37;
+            }
+            break;
+        // case 2: //前进1米8 (1个我的距离)
+        //     if (collision_avoidance_mission(1.8, 0, 0.5, 0, err_max))
+        //     {
+        //         Delay(0.5);
+        //     }
+        //     break;
+
+        case 2: //穿环
+            if(execute_universal_crossing(err_max))
+            {
+                //Delay(0.5);
                 mission_num = 37;
             }
             break;
-        case 2: //前进1米8 (1个我的距离)
-            if (collision_avoidance_mission(1.8, 0, 0.5, 0, err_max))
-            {
-                Delay(0.5);
-            }
-            break;
+
         case 3: //扫码
             if (detectQRCodeAndExtractInfo())
             {

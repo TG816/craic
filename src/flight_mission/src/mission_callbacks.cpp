@@ -157,3 +157,59 @@ void image_cb(const sensor_msgs::ImageConstPtr &msg)
     current_frame = cv_ptr->image;
     got_image = true;
 }
+
+/************************************************************************
+多检测回调函数：接收cloud_recognition的检测结果
+*************************************************************************/
+void obstacles_detection_cb(const cloud_recognition::Detection3DWithIDArray::ConstPtr& msg)
+{
+    target_selected = false;
+    for (const auto& detection : msg->detections) {
+        if (detection.id != OBSTACLE_RING_1) {
+            ROS_INFO(" --- IGNORE --- 非圆环类型，ID=%d", detection.id);
+            continue; // 只处理圆环类型
+        }
+
+        DetectedObstacle obstacle;
+        obstacle.position.x = detection.point.x;
+        obstacle.position.y = detection.point.y;
+        obstacle.position.z = detection.point.z;
+        obstacle.type = detection.id;  // 使用ID作为类型
+        obstacle.id = detection.id;
+        // new
+        // 从plane_pose的四元数计算法向量
+        if (detection.plane_pose.pose.orientation.x != 0.0 ||
+            detection.plane_pose.pose.orientation.y != 0.0 ||
+            detection.plane_pose.pose.orientation.z != 0.0 ||
+            detection.plane_pose.pose.orientation.w != 0.0) {
+            
+            // 获取法向量
+            tf2::Quaternion quat;
+            tf2::fromMsg(detection.plane_pose.pose.orientation, quat);
+            tf2::Matrix3x3 m(quat);
+            tf2::Vector3 tmp_normal = m.getColumn(2);
+            tmp_normal.setZ(0.0); // 确保垂直立环
+            tmp_normal.normalize();
+            obstacle.normal.x = tmp_normal.x();
+            obstacle.normal.y = tmp_normal.y();
+            obstacle.normal.z = tmp_normal.z();
+        } else {
+            // 如果没有有效的四元数，使用默认法向量
+            obstacle.normal.x = 1.0;
+            obstacle.normal.y = 0.0;
+            obstacle.normal.z = 0.0;
+        }
+
+        obstacle.raw_detection = detection; // 后续生成穿越点时使用
+        obstacle.has_crossing_points = false; // 初始没有穿越点
+
+        cb_target = obstacle; // 默认选择第一个圆环为目标, 后续逻辑以后再加吧, 累了
+        target_selected = true;
+        // ROS_INFO("检测到圆环，ID=%d", obstacle.id);
+        ROS_INFO_THROTTLE(5.0, "检测到圆环， ID=%d, 位置(%.2f, %.2f, %.2f), 法向量(%.2f, %.2f, %.2f)",
+                          obstacle.id,
+                          obstacle.position.x, obstacle.position.y, obstacle.position.z,
+                          obstacle.normal.x, obstacle.normal.y, obstacle.normal.z);
+        break; // 只选择第一个圆环
+    }
+}

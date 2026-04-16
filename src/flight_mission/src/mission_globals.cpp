@@ -54,6 +54,20 @@ cv::Mat camera_matrix = (cv::Mat_<double>(3, 3) << 1520.0, 0.0, 960.0,
 int H_direction = 0; //0就是没有，1就是left，-1就是right
 
 
+// 穿环相关
+DetectedObstacle cb_target;
+DetectedObstacle current_target; // 当前目标
+bool target_selected = false;  // 是否已选择目标
+
+float ring_exit_distance = 0.50f; // 圆环/方框的接近和退出距离
+float min_alignment_for_direct_cross = 0.95f; // 对齐度阈值
+
+// 穿越函数
+bool crossing_initialized = false;
+float crossing_target_yaw = 0.0f;
+int current_crossing_point_index = 0;
+
+
 // -------------------------- 配置参数（无人机场景优化） --------------------------
 const float CONF_THRESHOLD = 0.4f;
 const float SEARCH_RADIUS_SCALE = 2.0f;  // 灰环中心搜索黑正方形的范围（直径2倍）

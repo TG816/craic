@@ -304,3 +304,82 @@ bool throwObject(){
     //暂时空着具体动作
     return true;
 }
+
+/*****************************************************************
+ * 统一穿越点生成函数：根据类型生成穿越点
+*****************************************************************/
+// 位置控制的统一穿越执行函数
+bool execute_universal_crossing(float err_max) {
+
+    float px = local_pos.pose.pose.position.x;
+    float py = local_pos.pose.pose.position.y;
+    float pz = local_pos.pose.pose.position.z;
+
+    if (!crossing_initialized) {
+        if (!target_selected) {
+            ROS_WARN_THROTTLE(0.5, "未选择有效目标，无法执行穿越");
+            return false;
+        }
+        current_target = cb_target;
+        if (current_target.type != OBSTACLE_RING_1) {
+            ROS_WARN("当前目标不是圆环类型，无法执行统一穿越");
+            return false;
+        }
+
+        // 生成穿越点
+        if (!current_target.has_crossing_points) {
+            if (!generate_universal_crossing_points(current_target)) {
+                ROS_ERROR("生成穿越点失败，无法执行穿越");
+                return false;
+            }
+        }
+        if (current_target.crossing_points.empty()) {
+            ROS_ERROR("穿越点为空，无法执行穿越");
+            return false;
+        }
+        crossing_target_yaw = yaw;  // 默认保持当前朝向
+        crossing_initialized = true;
+    }
+
+    // 获取当前穿越点
+    if (current_crossing_point_index >= current_target.crossing_points.size()) {
+        ROS_INFO("所有穿越点已完成");
+        crossing_initialized = false; // 重置状态
+        current_crossing_point_index = 0;
+        return true; // 穿越完成
+    }
+
+    // 控制端
+    // 获取当前目标点
+    geometry_msgs::Point target_point = current_target.crossing_points[current_crossing_point_index];
+
+    float dx = target_point.x - px;
+    float dy = target_point.y - py;
+    float dz = target_point.z - pz;
+    float distance = sqrt(dx*dx + dy*dy + dz*dz);
+    ROS_INFO("dx: %.2f, dy: %.2f, dz: %.2f", dx, dy, dz);
+    if (fabs(dx) < err_max && fabs(dy) < err_max && fabs(dz) < err_max) {
+        ROS_INFO("到达穿越点%d/%zu，前往下一点",
+                 current_crossing_point_index + 1, current_target.crossing_points.size());
+        current_crossing_point_index++;
+        return false;  // 继续执行下一个点
+    }
+    ROS_INFO("使用位置控制前往穿越点%d/%zu，距离%.2f米",
+             current_crossing_point_index + 1, current_target.crossing_points.size(), distance);
+    setpoint_raw.type_mask = 8 + 16 + 32 + 64 + 128 + 256 + 512 + 2048; // 只控制位置和yaw
+    setpoint_raw.coordinate_frame = 1; 
+    setpoint_raw.position.x = target_point.x;
+    setpoint_raw.position.y = target_point.y;
+    setpoint_raw.position.z = target_point.z;
+    setpoint_raw.yaw = crossing_target_yaw;
+    // ROS_INFO_THROTTLE(0.1, "飞机当前的位置是(%.2f, %.2f, %.2f)，目标点是(%.2f, %.2f, %.2f)，距离%.2f米, err_max=%.2f",
+    //                   px, py, pz,
+    //                   target_point.x, target_point.y, target_point.z,
+    //                   distance, err_max);
+    ROS_INFO("飞机当前的位置是(%.2f, %.2f, %.2f)，目标点是(%.2f, %.2f, %.2f)，距离%.2f米, err_max=%.2f",
+                    px, py, pz,
+                    target_point.x, target_point.y, target_point.z,
+                    distance, err_max);
+
+    return false; // 继续执行当前点
+}

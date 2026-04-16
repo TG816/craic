@@ -26,9 +26,12 @@ tmux new-window -t ros_session:1 -n monitors_mission
 # Pane 0: /mavros/local_position/pose
 tmux send-keys -t ros_session:1 'sleep 6; rostopic echo /mavros/local_position/pose' C-m
 
+tmux split-window -h -t ros_session:1
+tmux send-keys -t ros_session:1.1 'sleep 5; source ~/four/first_task_ws/devel/setup.bash; roslaunch cloud_recognition all_noflag.launch' C-m
+
 # Pane 3: complete_mission.launch
 tmux split-window -v -t ros_session:1
-tmux send-keys -t ros_session:1.1 'sleep 7; source ~/four/first_task_ws/devel/setup.bash; roslaunch flight_mission flight_mission.launch' C-m
+tmux send-keys -t ros_session:1.2 'sleep 7; source ~/four/first_task_ws/devel/setup.bash; roslaunch flight_mission flight_mission.launch' C-m
 
 # 整理第二个窗口布局
 tmux select-layout -t ros_session:1 tiled

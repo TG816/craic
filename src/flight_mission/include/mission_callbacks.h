@@ -10,5 +10,6 @@ void state_cb(const mavros_msgs::State::ConstPtr &msg);
 void local_pos_cb(const nav_msgs::Odometry::ConstPtr &msg);
 void livox_custom_cb(const livox_ros_driver::CustomMsg::ConstPtr &livox_msg);
 void image_cb(const sensor_msgs::ImageConstPtr &msg);
+void obstacles_detection_cb(const cloud_recognition::Detection3DWithIDArray::ConstPtr& msg);
 
 #endif

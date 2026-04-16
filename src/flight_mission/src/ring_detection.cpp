@@ -289,3 +289,83 @@ bool cross_ring(double x, double y, double z, double t_yaw, double err_max)
     }
     return false;
 }
+
+
+bool generate_universal_crossing_points(DetectedObstacle& obstacle)
+{
+    obstacle.crossing_points.clear();
+    
+    float px = local_pos.pose.pose.position.x;
+    float py = local_pos.pose.pose.position.y;
+    float pz = local_pos.pose.pose.position.z;
+
+    float drone_to_obstacle_x = obstacle.position.x - px;
+    float drone_to_obstacle_y = obstacle.position.y - py;
+    float distance = sqrt(drone_to_obstacle_x*drone_to_obstacle_x + drone_to_obstacle_y*drone_to_obstacle_y);
+
+    if (distance > 0.05f) {
+        // 检查穿越方向，确保法向量指向正确
+        float dot_product = drone_to_obstacle_x * obstacle.normal.x + drone_to_obstacle_y * obstacle.normal.y;
+        if (dot_product < 0) {
+            // 反转法向量方向
+            obstacle.normal.x = -obstacle.normal.x;
+            obstacle.normal.y = -obstacle.normal.y;
+        }
+    }
+
+    // 如果飞机和中心的连线, 和法向量几乎在一条线上的话, 可以直接做延长线穿一个点就可以了
+    // 考虑三维空间的完整对齐度计算
+    float drone_to_obstacle_z = obstacle.position.z - pz;
+    float distance_3d = sqrt(drone_to_obstacle_x*drone_to_obstacle_x +
+                            drone_to_obstacle_y*drone_to_obstacle_y +
+                            drone_to_obstacle_z*drone_to_obstacle_z);
+
+    // 三维点积计算对齐度
+    float alignment_score = (obstacle.normal.x * drone_to_obstacle_x +
+                            obstacle.normal.y * drone_to_obstacle_y +
+                            obstacle.normal.z * drone_to_obstacle_z) / distance_3d;
+
+    if (alignment_score > min_alignment_for_direct_cross) {  // 余弦值 > 0.95，约18度以内认为对齐
+        geometry_msgs::Point exit_point;
+
+        // 使用无人机到的三维方向作为穿越方向
+        float normalized_dx = drone_to_obstacle_x / distance_3d;
+        float normalized_dy = drone_to_obstacle_y / distance_3d;
+        float normalized_dz = drone_to_obstacle_z / distance_3d;
+
+        exit_point.x = obstacle.position.x + normalized_dx * ring_exit_distance;
+        exit_point.y = obstacle.position.y + normalized_dy * ring_exit_distance;
+        exit_point.z = obstacle.position.z + normalized_dz * ring_exit_distance;
+
+        obstacle.crossing_points.push_back(exit_point);
+
+        ROS_INFO("圆环或方框[%d]几乎正对飞行方向(3D对齐度%.2f), 采用直接穿越策略: (%.2f, %.2f, %.2f)",
+                    obstacle.type, alignment_score, exit_point.x, exit_point.y, exit_point.z);
+        
+        obstacle.has_crossing_points = true;
+        return true;
+    }
+
+    // 接近点：中心 - 法向量方向 × 接近距离
+    geometry_msgs::Point approach_point;
+    approach_point.x = obstacle.position.x - obstacle.normal.x * ring_exit_distance;  // 接近距离0.75米
+    approach_point.y = obstacle.position.y - obstacle.normal.y * ring_exit_distance;
+    approach_point.z = obstacle.position.z;
+
+    // 退出点：中心 + 法向量方向 × 退出距离
+    geometry_msgs::Point exit_point;
+    exit_point.x = obstacle.position.x + obstacle.normal.x * ring_exit_distance;
+    exit_point.y = obstacle.position.y + obstacle.normal.y * ring_exit_distance;
+    exit_point.z = obstacle.position.z;
+
+    obstacle.crossing_points.push_back(approach_point);
+    obstacle.crossing_points.push_back(exit_point);
+
+    ROS_INFO("生成圆环穿越点[类型%d]：接近点(%.2f,%.2f,%.2f) → 退出点(%.2f,%.2f,%.2f)",
+                obstacle.type, approach_point.x, approach_point.y, approach_point.z,
+                exit_point.x, exit_point.y, exit_point.z);
+    
+    obstacle.has_crossing_points = true;
+    return true;
+
+}

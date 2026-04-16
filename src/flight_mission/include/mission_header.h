@@ -39,8 +39,25 @@
 #include <onnxruntime_cxx_api.h> //yolo新加
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+
+
+//cross新增
+#include <cloud_recognition/Detection3DWithIDArray.h>
+#include <cloud_recognition/detection_processor.h> // new
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <iostream>  // 为了使用 cout
+
+// 刀旗
+#include <tf2_ros/transform_listener.h>
+#include <Eigen/Geometry>
+
+
+
+
 // 动态参数
 // 回退逻辑
+
 
 using namespace std;
 
@@ -119,6 +136,17 @@ extern int H_direction;
 extern std::vector<std::string> g_qrcode_classes;
 extern const std::vector<std::string> CIFAR100_CLASSES;
 
+// 穿环相关
+extern bool target_selected;  // 是否已选择目标
+extern float ring_exit_distance; // 圆环/方框的接近和退出距离
+extern float min_alignment_for_direct_cross; // 对齐度阈值
+// 穿越函数
+extern bool crossing_initialized;
+extern float crossing_target_yaw;
+extern int current_crossing_point_index;
+
+
+
 // 注意：extern 仅做声明，具体定义需在某个 .cpp 文件中实现（无 extern 关键字）
 extern const float CONF_THRESHOLD;
 extern const float SEARCH_RADIUS_SCALE;  // 灰环中心搜索黑正方形的范围（直径2倍）
@@ -142,6 +170,19 @@ extern int timepiece;
 extern bool ERROR_DET;
 extern bool isinit;
 extern double init_x, init_y, init_z, init_yaw;
+
+
+
+// 类型枚举, 大概要把4, 5 给删掉
+enum ObstacleType {
+    OBSTACLE_RING_0 = 0,     // 圆环类型0（方框，用圆环方法穿越）
+    OBSTACLE_RING_1 = 1,     // 圆环类型1（圆环，用圆环方法穿越）
+    OBSTACLE_HORIZONTAL = 2, // 横框
+    OBSTACLE_VERTICAL = 3,   // 竖框
+    OBSTACLE_FLAG = 4,       // 刀旗
+    OBSTACLE_FLAG_1 = 5,     // 另外一个方向的刀旗
+    OBSTACLE_UNKNOWN = 99    // 未知类型
+};
 
 /************************************************************************
 结构体定义
@@ -201,6 +242,28 @@ struct GridPoint
         return *this;
     }
 };
+
+
+struct DetectedObstacle {
+    geometry_msgs::Point position;
+    int type;                        // 类型（0,1,2,3,4...）
+    int id;                          // ID
+
+    // new
+    geometry_msgs::Vector3 normal;   // 从plane_pose四元数计算的法向量
+    // tf2::Vector3 normal;
+    cloud_recognition::Detection3DWithID raw_detection; // 保存原始数据
+    std::vector<geometry_msgs::Point> crossing_points; // 生成的穿越点
+    bool has_crossing_points; // 是否有穿越点
+
+    DetectedObstacle() : type(OBSTACLE_UNKNOWN), id(-1) {
+        normal.x = 1.0; normal.y = 0.0; normal.z = 0.0; // 默认法向量
+    }
+};
+
+
+extern DetectedObstacle cb_target;
+extern DetectedObstacle current_target; // 当前目标
 
 // 障碍物类
 class Obstacle

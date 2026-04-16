@@ -7,5 +7,7 @@
 穿环相关函数声明
 *************************************************************************/
 bool cross_ring(double x, double y, double z, double t_yaw, double err_max);
+bool generate_universal_crossing_points(DetectedObstacle& obstacle);
+
 
 #endif
