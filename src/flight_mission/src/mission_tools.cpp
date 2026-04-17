@@ -158,9 +158,10 @@ void init_location(double &init_x, double &init_y, double &init_z, double &init_
 }
 
 float min_obs_fuc(){
-    float min_obs=0.35f;
+    float min_obs=0.39f;
     for(int i=60;i<=120;++i){
         if(distance_bins_rotate.at(i)<min_obs) min_obs = distance_bins_rotate.at(i);
+	//ROS_INFO("第%d度:%f",60+i,distance_bins_rotate.at(i));
     }
     return min_obs;
 }

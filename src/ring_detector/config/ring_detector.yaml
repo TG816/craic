@@ -8,8 +8,8 @@ ring_detector:
   max_iterations: 1000      # RANSAC最大迭代次数
   
   # 圆环检测参数
-  radius_min: 0.2          # 最小圆环半径 (m)
-  radius_max: 1.0          # 最大圆环半径 (m)
+  radius_min: 0.3          # 最小圆环半径 (m)
+  radius_max: 0.8          # 最大圆环半径 (m)
   inlier_threshold: 0.02    # 内点阈值 (m)
   min_inlier_ratio: 0.15    # 最小内点比例
   min_inlier_count: 30      # 最小内点数量

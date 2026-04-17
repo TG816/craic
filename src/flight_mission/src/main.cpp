@@ -206,27 +206,52 @@ int main(int argc, char **argv)
                 //mission_num = 37;
             }
             break;
-        case 2: //前进1米8 (1个我的距离)
-            if (collision_avoidance_mission(6.0, -2.4, ALTITUDE, 0, err_max))
+        case 3: //前进1米8 (1个我的距离)
+            if (collision_avoidance_mission(2.65, 0, ALTITUDE, LEFT, err_max))
+            {
+                Delay(DELAY);
+            }
+            break;
+
+	case 2: //准备转圈
+            if (mission_pos_cruise(0, 0, ALTITUDE, LEFT, err_max))
+            {
+                //Delay(DELAY);
+		mission_num = 3;
+            }
+            break;
+
+        case 4: //穿环
+            if(Circle_around(COUNTS,TIMES,ALTITUDE,0.5,0.3,3.55,0, 0.8, 0.5))
+            {
+                Delay(1.0);
+                //mission_num = 37;
+                //mission_num = 4;
+            }
+            break;
+
+        case 5: //准备转圈
+            if (mission_pos_cruise(2.65, 0, ALTITUDE, 0, err_max))
             {
                 Delay(0.5);
+                //mission_num = 37;
             }
             break;
 
-        case 3: //穿环
-            if(execute_universal_crossing(err_max))
+	case 6: //准备转圈
+            if (collision_avoidance_mission(0, 0, ALTITUDE, 0, err_max))
             {
                 //Delay(0.5);
-                mission_num = 37;
+		mission_num = 37;
             }
             break;
 
-        case 4: //扫码
-            if (detectQRCodeAndExtractInfo())
-            {
-                mission_num = 4; // 理论上完全可以Delay(0);
-            }
-            break;
+        // case 4: //扫码
+        //     if (detectQRCodeAndExtractInfo())
+        //     {
+        //         mission_num = 4; // 理论上完全可以Delay(0);
+        //     }
+        //     break;
         /* 
 
             //此处保留了原来的逻辑，需要对比时方便修改。
@@ -245,14 +270,14 @@ int main(int argc, char **argv)
             }
             break;
         */
-        case 4: //准备转圈
+        case 100: //准备转圈
             if (collision_avoidance_mission(3.5, 0, ALTITUDE, LEFT, err_max))
             {
                 Delay(0.5);
             }
             break;
 
-        case 5:
+        case 101:
             if (Circle_around(COUNTS,TIMES,ALTITUDE,0.8,0.8,4.3,0, 0.7, 0.5))
                             /* int counts, float times, float z_h, float v0, float v1, float cx, float cy, float r_of_c, float err_max   */
                             /*设定的总圈数，设定的总时间，  设定高度 ，切向速度 ，纠正速度，圆心x坐标，圆心y坐标，  圆半径，    误差*/
@@ -271,7 +296,7 @@ int main(int argc, char **argv)
             }
             break;
 
-        case 6:
+        case 102:
             if (collision_avoidance_mission(3.6, 1.6, ALTITUDE, 0, err_max))
             {
                 Delay(2);

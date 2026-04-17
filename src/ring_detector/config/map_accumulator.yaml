@@ -11,10 +11,10 @@ preview_rate: 5
 
 # --- 关键：启用并配置 ROI ---
 enable_map_roi_filter: true # 必须设为 true 才会生效
-map_roi_min_x: 4.0
-map_roi_max_x: 7.0
-map_roi_min_y: -4.0
-map_roi_max_y: 0.0
+map_roi_min_x: 3.0
+map_roi_max_x: 5.0
+map_roi_min_y: -0.5
+map_roi_max_y: 2
 map_roi_min_z: 0.2
 map_roi_max_z: 2.4
 

@@ -129,7 +129,9 @@ bool collision_avoidance_mission(float target_x, float target_y, float target_z,
     float min_obs = min_obs_fuc();
 
     // 是否处在障碍物扩张区 or 离障碍物过近
-    bool danger = (M.Grid[start.x][start.y] == 1 || min_obs < 0.30f) ? true : false;
+    bool danger = (M.Grid[start.x][start.y] == 1 || min_obs < 0.38f) ? true : false;
+    //ROS_INFO("最近距离%f",min_obs);
+    //print2DArrayROS(M.Grid, M.Xnum, M.Ynum);
 
     // 如果danger，则前往最近且离终点最近的next点，几乎不可能出现的极端情况下前往附近的0点，否则正常更新
     if (danger)
@@ -183,7 +185,7 @@ bool collision_avoidance_mission(float target_x, float target_y, float target_z,
         }
     }
 
-    //print2DArrayROS(M.Grid, M.Xnum, M.Ynum);
+    print2DArrayROS(M.Grid, M.Xnum, M.Ynum);
     ROS_INFO("now (%.2f,%.2f,%.2f,%.2f)", local_pos.pose.pose.position.x, local_pos.pose.pose.position.y, local_pos.pose.pose.position.z, yaw * 180.0 / M_PI);
 
     // float dse_yaw = atan2(target_y-local_pos.pose.pose.position.y,target_x-local_pos.pose.pose.position.x);

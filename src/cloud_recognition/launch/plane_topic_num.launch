@@ -1,6 +1,6 @@
 <launch>
     <!-- 定义全局参数 -->
-    <arg name="max_planes" default="10" /> <!-- 提取最大平面数 -->
+    <arg name="max_planes" default="20" /> <!-- 提取最大平面数 -->
     <arg name="total_max_fragments" default="12" /> <!-- 总最大碎片数 -->
 
     <arg name="max_topics" default="12" /> <!-- 最大话题数 -->
