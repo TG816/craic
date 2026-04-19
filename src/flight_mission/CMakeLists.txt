@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(flight_mission)
 
+# 让这个包延迟编译，最后才编
+set(CATKIN_ORDERED_BUILD ON)
+set(CATKIN_LAST_PKG ON)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -88,11 +92,20 @@ target_link_libraries(flight_mission
 
 # 3. YOLO 测试程序（只需要 yolo.cpp）
 add_executable(yolo 
-  src/yolo.cpp
+  src/m_yolo.cpp
 )
 target_link_libraries(yolo 
   mission_common  # 链接同一个库！
 )
+
+# 4.简化版 绕桩加穿环
+add_executable(circleAndring 
+  src/m_circle_ring_task.cpp
+)
+target_link_libraries(circleAndring 
+  mission_common  # 链接同一个库！
+)
+
 # ====================================================================
 
 # 运行时自动找到 ONNX 库（不报错）

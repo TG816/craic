@@ -6,7 +6,7 @@ tmux new-session -d -s ros_session -n main_nodes
 # Pane 0: roscore
 tmux send-keys -t ros_session:0 'roscore' C-m
 
-# Pane 1: location.launch
+# Pane 1: utils.launch
 tmux split-window -h -t ros_session:0
 tmux send-keys -t ros_session:0.1 'sleep 3;  source ~/four/first_task_ws/devel/setup.bash; roslaunch bringup location.launch' C-m
 
@@ -31,7 +31,7 @@ tmux send-keys -t ros_session:1.1 'sleep 5; source ~/four/first_task_ws/devel/se
 
 # Pane 3: complete_mission.launch
 tmux split-window -v -t ros_session:1
-tmux send-keys -t ros_session:1.2 'sleep 7; source ~/four/first_task_ws/devel/setup.bash; roslaunch flight_mission flight_mission.launch' C-m
+tmux send-keys -t ros_session:1.2 'sleep 7; source ~/four/first_task_ws/devel/setup.bash; roslaunch flight_mission cAndr_test.launch' C-m
 
 # 整理第二个窗口布局
 tmux select-layout -t ros_session:1 tiled
