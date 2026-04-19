@@ -206,52 +206,52 @@ int main(int argc, char **argv)
                 //mission_num = 37;
             }
             break;
-        case 3: //前进1米8 (1个我的距离)
-            if (collision_avoidance_mission(2.65, 0, ALTITUDE, LEFT, err_max))
+        case 2: //前进1米8 (1个我的距离)
+            if (collision_avoidance_mission(1.8, 0, ALTITUDE, 0, err_max))
             {
                 Delay(DELAY);
             }
             break;
 
-	    case 2: //准备转圈
-            if (mission_pos_cruise(0, 0, ALTITUDE, LEFT, err_max))
+	    case 4: //准备转圈
+            if (mission_pos_cruise(1.8, 0, ALTITUDE, LEFT, err_max))
             {
-                //Delay(DELAY);
-		        mission_num = 3;
+                Delay(DELAY);
+		        //mission_num = 3;
             }
             break;
 
-        case 4: //穿环
-            if(Circle_around(COUNTS,TIMES,ALTITUDE,0.5,0.3,3.55,0, 0.8, 0.5))
+    //     case 4: //穿环
+    //         if(Circle_around(COUNTS,TIMES,ALTITUDE,0.5,0.3,3.55,0, 0.8, 0.5))
+    //         {
+    //             Delay(1.0);
+    //             //mission_num = 37;
+    //             //mission_num = 4;
+    //         }
+    //         break;
+
+    //     case 5: //准备转圈
+    //         if (mission_pos_cruise(2.65, 0, ALTITUDE, 0, err_max))
+    //         {
+    //             Delay(0.5);
+    //             //mission_num = 37;
+    //         }
+    //         break;
+
+	// case 6: //准备转圈
+    //         if (collision_avoidance_mission(0, 0, ALTITUDE, 0, err_max))
+    //         {
+    //             //Delay(0.5);
+	// 	mission_num = 37;
+    //         }
+    //         break;
+
+        case 3: //扫码
+            if (detectQRCodeAndExtractInfo())
             {
-                Delay(1.0);
-                //mission_num = 37;
-                //mission_num = 4;
+                Delay(0.1); // 理论上完全可以Delay(0);
             }
             break;
-
-        case 5: //准备转圈
-            if (mission_pos_cruise(2.65, 0, ALTITUDE, 0, err_max))
-            {
-                Delay(0.5);
-                //mission_num = 37;
-            }
-            break;
-
-	case 6: //准备转圈
-            if (collision_avoidance_mission(0, 0, ALTITUDE, 0, err_max))
-            {
-                //Delay(0.5);
-		mission_num = 37;
-            }
-            break;
-
-        // case 4: //扫码
-        //     if (detectQRCodeAndExtractInfo())
-        //     {
-        //         mission_num = 4; // 理论上完全可以Delay(0);
-        //     }
-        //     break;
         /* 
 
             //此处保留了原来的逻辑，需要对比时方便修改。
@@ -270,14 +270,14 @@ int main(int argc, char **argv)
             }
             break;
         */
-        case 100: //准备转圈
+        case 5: //准备转圈
             if (collision_avoidance_mission(3.5, 0, ALTITUDE, LEFT, err_max))
             {
                 Delay(0.5);
             }
             break;
 
-        case 101:
+        case 6:
             if (Circle_around(COUNTS,TIMES,ALTITUDE,0.8,0.8,4.3,0, 0.7, 0.5))
                             /* int counts, float times, float z_h, float v0, float v1, float cx, float cy, float r_of_c, float err_max   */
                             /*设定的总圈数，设定的总时间，  设定高度 ，切向速度 ，纠正速度，圆心x坐标，圆心y坐标，  圆半径，    误差*/
@@ -292,14 +292,15 @@ int main(int argc, char **argv)
                                 当然，实际飞行考虑更多的因素，应结合实际条件多修改参数进行调整。
                             */
             {               
-                mission_num = 6;
+                mission_num = 39;
             }
             break;
 
-        case 102:
+        case 39:
             if (collision_avoidance_mission(3.6, 1.6, ALTITUDE, 0, err_max))
             {
-                Delay(2);
+                //Delay(2);
+                mission_num = 7;
             }
             break;
 
@@ -462,7 +463,7 @@ int main(int argc, char **argv)
             break;
 
         case 28:
-            if (cross_ring(6.0, 0, RING_ALTITUDE, LEFT, err_max))
+            if (execute_universal_crossing(0.1))
             {
                 Delay(0.2);
             }

@@ -108,9 +108,12 @@ bool detectBlackSquareAndThrow(float throw_yaw, double err_max) {
 
 // -------------------------- 工具函数 --------------------------
 cv::Mat getColorMask(const cv::Mat& frame, const cv::Scalar& low, const cv::Scalar& high) {
+    if (frame.empty()) return cv::Mat();
     cv::Mat hsv, mask;
     cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
     cv::inRange(hsv, low, high, mask);
+
+    if (mask.empty()) return mask;
     
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, MORPHO_KERNEL);
     cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
