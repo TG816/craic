@@ -57,9 +57,9 @@ include_directories(
   ${ONNX_INCLUDE_DIR}
 )
 
-# 编译可执行文件
-add_executable(flight_mission 
-  src/main.cpp
+# ======================== 这里开始我帮你改成库 ========================
+# 1. 把所有公共文件编译成库（只编一次）
+add_library(mission_common
   src/mission_globals.cpp
   src/mission_callbacks.cpp
   src/flight_control.cpp
@@ -70,13 +70,30 @@ add_executable(flight_mission
   src/map_class.cpp
 )
 
-# 链接库（全部自动找到）
-target_link_libraries(flight_mission 
+# 库链接所有依赖
+target_link_libraries(mission_common
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
   ${ONNX_LIBRARY}
   ${QR_LIBRARY}
 )
+
+# 2. 飞行主程序（只需要 main.cpp）
+add_executable(flight_mission 
+  src/main.cpp
+)
+target_link_libraries(flight_mission 
+  mission_common  # 链接公共库
+)
+
+# 3. YOLO 测试程序（只需要 yolo.cpp）
+add_executable(yolo 
+  src/yolo.cpp
+)
+target_link_libraries(yolo 
+  mission_common  # 链接同一个库！
+)
+# ====================================================================
 
 # 运行时自动找到 ONNX 库（不报错）
 get_filename_component(ONNX_LIB_DIR ${ONNX_LIBRARY} DIRECTORY)

@@ -48,8 +48,8 @@ float map_length = 11.0f;
 // 视觉相关
 cv::Mat current_frame;
 bool got_image = false;
-cv::Mat camera_matrix = (cv::Mat_<double>(3, 3) << 1520.0, 0.0, 960.0,
-                         0.0, 1520.0, 540.0,
+cv::Mat camera_matrix = (cv::Mat_<double>(3, 3) << 448.61, 0.0, 337.09,
+                         0.0, 447.73, 224.47,
                          0.0, 0.0, 1.0);
 int H_direction = 0; //0就是没有，1就是left，-1就是right
 
@@ -73,7 +73,7 @@ const float CONF_THRESHOLD = 0.4f;
 const float SEARCH_RADIUS_SCALE = 2.0f;  // 灰环中心搜索黑正方形的范围（直径2倍）
 const float INNER_IMG_SCALE = 0.7f;      // 中心图片占白色圆比例
 const float APPROX_EPSILON = 0.03f;      // 轮廓逼近阈值（宽松，适配透视）
-const std::string ONNX_MODEL_PATH = "/home/jetson/first_task_ws/src/flight_mission/best.onnx"; // 需替换为实际模型路径
+const std::string ONNX_MODEL_PATH = "/home/jetson/first_task_ws/src/flight_mission/best.onnx"; // 需替换为实际模型路径/home/nx/four/first_task_ws/src/flight_mission/best.onnx
 const bool USE_GPU = false;              // 是否使用GPU推理
 
 // 颜色范围（HSV，适配无人机下视光照）

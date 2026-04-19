@@ -213,11 +213,11 @@ int main(int argc, char **argv)
             }
             break;
 
-	case 2: //准备转圈
+	    case 2: //准备转圈
             if (mission_pos_cruise(0, 0, ALTITUDE, LEFT, err_max))
             {
                 //Delay(DELAY);
-		mission_num = 3;
+		        mission_num = 3;
             }
             break;
 

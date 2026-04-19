@@ -13,7 +13,7 @@
 // -------------------------- 独立实现 onFrame 函数 --------------------------
 bool onFrame(float t_yaw, double err_max) {
     // 1. 打印帧处理日志
-    ROS_INFO("[onFrame] 开始处理图像帧 | 目标偏航：%.2f | 最大误差：%.2f", t_yaw, err_max);
+    // ROS_INFO("[onFrame] 开始处理图像帧 | 目标偏航：%.2f | 最大误差：%.2f", t_yaw, err_max);
     
     // 2. 调用无人机核心检测函数，获取自定义检测结果
     UavDetectResult det_res = detectUavTarget();
@@ -21,10 +21,10 @@ bool onFrame(float t_yaw, double err_max) {
     // 3. 检测失败处理：返回true（保留原有动态调整逻辑入口）
     if (!det_res.is_detected || det_res.confidence < CONF_THRESHOLD) {
         std::string fail_reason = det_res.is_detected ? "置信度低于阈值" : "未检测到靶子";
-        ROS_WARN("[onFrame] 目标识别失败 | 原因：%s | 图像帧为空：%s | 置信度：%.2f (阈值：%.2f)",
-                 fail_reason.c_str(),
-                 current_frame.empty() ? "是" : "否",
-                 det_res.confidence, CONF_THRESHOLD);
+        // ROS_WARN("[onFrame] 目标识别失败 | 原因：%s | 图像帧为空：%s | 置信度：%.2f (阈值：%.2f)",
+        //          fail_reason.c_str(),
+        //          current_frame.empty() ? "是" : "否",
+        //          det_res.confidence, CONF_THRESHOLD);
         
         // 动态调整逻辑示例（可按需扩展）：
         // - 调整颜色阈值/搜索范围
@@ -43,9 +43,9 @@ bool onFrame(float t_yaw, double err_max) {
 
     // 5. 非目标类别：打印日志并返回true
     if (!is_target_class) {
-        ROS_INFO("[onFrame] 识别成功但非二维码目标 | 检测类别：%s | 目标列表包含类别数：%lu",
-                 det_res.class_name.c_str(), // 修复：target_class → class_name
-                 g_qrcode_classes.size());
+        // ROS_INFO("[onFrame] 识别成功但非二维码目标 | 检测类别：%s | 目标列表包含类别数：%lu",
+        //          det_res.class_name.c_str(), // 修复：target_class → class_name
+        //          g_qrcode_classes.size());
         return true;
     }
 
@@ -65,11 +65,11 @@ bool onFrame(float t_yaw, double err_max) {
     float dx = throw_pos.x - drone_x;
     float dy = throw_pos.x - drone_y;
 
-    ROS_INFO("[onFrame] 识别到二维码目标 | 类别：%s | 靶子中心：(%.1f,%.1f) | 无人机位置：(%.1f,%.1f) | 偏移(x/y)：%.2f/%.2f",
-             det_res.class_name.c_str(), // 修复：target_class → class_name
-             throw_pos.x,throw_pos.y,
-             drone_x, drone_y,
-             dx, dy);
+    // ROS_INFO("[onFrame] 识别到二维码目标 | 类别：%s | 靶子中心：(%.1f,%.1f) | 无人机位置：(%.1f,%.1f) | 偏移(x/y)：%.2f/%.2f",
+    //          det_res.class_name.c_str(), // 修复：target_class → class_name
+    //          throw_pos.x,throw_pos.y,
+    //          drone_x, drone_y,
+    //          dx, dy);
 
     return true;
 }
@@ -77,7 +77,7 @@ bool onFrame(float t_yaw, double err_max) {
 bool detectBlackSquareAndThrow(float throw_yaw, double err_max) {
     // 1. 输入校验：图像帧为空直接返回失败
     if (current_frame.empty()) {
-        ROS_ERROR("[detectBlackSquareAndThrow] 输入图像帧为空，灰环检测失败");
+        //ROS_ERROR("[detectBlackSquareAndThrow] 输入图像帧为空，灰环检测失败");
         return false;
     }
 
@@ -86,7 +86,7 @@ bool detectBlackSquareAndThrow(float throw_yaw, double err_max) {
     cv::Rect black_rect;      // 包围矩形
     float angle=0;     // 角度
     if (!findBlackSquare(current_frame,black_center,  black_rect, angle)) {
-        ROS_WARN("[detectBlackSquareAndThrow] 未检测到黑色框，投掷失败");
+        //ROS_WARN("[detectBlackSquareAndThrow] 未检测到黑色框，投掷失败");
         return false;
     }
 
@@ -97,8 +97,8 @@ bool detectBlackSquareAndThrow(float throw_yaw, double err_max) {
     throw_pos = {target_pos.x, target_pos.y};
     isThrow = true;
 
-    ROS_INFO("[detectBlackSquareAndThrow] 调用投掷函数 | 靶标位置：(%.2f,%.2f) | 目标偏航：%.2f | 误差阈值：%.2f",
-             throw_pos.x,throw_pos.y, throw_yaw, err_max);
+    // ROS_INFO("[detectBlackSquareAndThrow] 调用投掷函数 | 靶标位置：(%.2f,%.2f) | 目标偏航：%.2f | 误差阈值：%.2f",
+    //          throw_pos.x,throw_pos.y, throw_yaw, err_max);
 
     // 6. 返回成功
     return true;
@@ -159,12 +159,12 @@ bool findGrayRingCenter(const cv::Mat& frame, cv::Point& center, cv::Rect& gray_
         // 使用 OpenCV 保存
         bool success = cv::imwrite(filename, roi);
         
-        if (success) {
-            ROS_INFO("[findGrayRingCenter] 成功保存灰色圆环图片 | 文件名：%s ", 
-                     filename.c_str());
-        } else {
-            ROS_WARN("[findGrayRingCenter] 保存图片失败，可能是磁盘权限问题");
-        }
+        // if (success) {
+        //     ROS_INFO("[findGrayRingCenter] 成功保存灰色圆环图片 | 文件名：%s ", 
+        //              filename.c_str());
+        // } else {
+        //     ROS_WARN("[findGrayRingCenter] 保存图片失败，可能是磁盘权限问题");
+        // }
     }
 
 
@@ -284,7 +284,7 @@ bool preciseClassify(const cv::Mat& frame, const cv::Rect& center_rect,
         return false;
     }
     cv::Mat roi = frame(center_rect & cv::Rect(0,0,frame.cols,frame.rows));
-    ROS_INFO("[preciseClassify] 截取ROI | ROI最终尺寸：%dx%d", roi.cols, roi.rows);
+    //ROS_INFO("[preciseClassify] 截取ROI | ROI最终尺寸：%dx%d", roi.cols, roi.rows);
     
     // 预处理+ONNX推理
     cv::Mat resized, rgb;
@@ -295,7 +295,7 @@ bool preciseClassify(const cv::Mat& frame, const cv::Rect& center_rect,
     
     double min_val, max_val;
     cv::minMaxLoc(float_img, &min_val, &max_val);
-    ROS_DEBUG("[preciseClassify] 预处理完成 | 归一化后图像范围：%.2f~%.2f", min_val, max_val);
+    //ROS_DEBUG("[preciseClassify] 预处理完成 | 归一化后图像范围：%.2f~%.2f", min_val, max_val);
 
     std::vector<float> input_data(3*32*32);
     int idx = 0;
@@ -315,9 +315,9 @@ bool preciseClassify(const cv::Mat& frame, const cv::Rect& center_rect,
         // 适配GPU/CPU
         if (USE_GPU) {
             sess_opt.AppendExecutionProvider_CUDA(OrtCUDAProviderOptions{});
-            ROS_INFO("[preciseClassify] 使用GPU推理 | ONNX模型路径：%s", ONNX_MODEL_PATH.c_str());
+            //ROS_INFO("[preciseClassify] 使用GPU推理 | ONNX模型路径：%s", ONNX_MODEL_PATH.c_str());
         } else {
-            ROS_INFO("[preciseClassify] 使用CPU推理 | ONNX模型路径：%s", ONNX_MODEL_PATH.c_str());
+            //ROS_INFO("[preciseClassify] 使用CPU推理 | ONNX模型路径：%s", ONNX_MODEL_PATH.c_str());
         }
         
         // 获取输入输出名
