@@ -22,7 +22,6 @@
 #include <mavros_msgs/State.h>
 #include <std_msgs/Bool.h>
 #include <mavros_msgs/PositionTarget.h>
-#include <cmath>
 #include <tf/transform_listener.h>
 #include <nav_msgs/Odometry.h>
 #include <mavros_msgs/CommandLong.h>

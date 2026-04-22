@@ -1,5 +1,6 @@
 #include "flight_control.h"
 #include "mission_header.h"
+#include "servo.h"
 
 /************************************************************************
 函数 3: 无人机位置控制
@@ -297,12 +298,13 @@ bool Circle_around(int counts, float times, float z_h, float v0, float v1, float
     return true;
 }
 
-bool throwObject(){
+bool throwObject(int servo_num){
     // TODO
     //投掷
+    servo_controller.servo_control_num_better(servo_num);
     ROS_INFO("开始投掷，投掷位置：%f %f",local_pos.pose.pose.position.x,local_pos.pose.pose.position.y);
     //暂时空着具体动作
-    return true;
+    return false;
 }
 
 /*****************************************************************
@@ -382,4 +384,63 @@ bool execute_universal_crossing(float err_max) {
                     distance, err_max);
 
     return false; // 继续执行当前点
+}
+
+//延时函数：lib_time_record_func(duration, current_time)
+ros::Time last_time;
+bool lib_time_init_flag = true; // 记录是否为第一次触发
+bool lib_time_record_func(float duration, ros::Time current_time)
+{
+    // 静态变量，记录上次触发时间
+    if (lib_time_init_flag)
+    {
+        last_time = current_time;
+        lib_time_init_flag = false; // 只在第一次调用时初始化
+    }
+
+    ros::Duration elapsed = current_time - last_time;
+    // 如果已经过去超过 duration 秒，返回 true 并更新时间
+    if (elapsed.toSec() >= duration)
+    {
+        lib_time_init_flag = true;
+        return true;
+    }
+    return false;
+}
+
+
+//悬停函数 : hover保持悬停time秒
+
+bool hover_started = false;
+ros::Time hover_last_time;
+float hover_x = 0;
+float hover_y = 0;
+float hover_z = 0;
+float hover_yaw = 0;
+bool hover(float time_duration)
+{
+    if (!hover_started)
+    {
+        hover_last_time = ros::Time::now();
+        hover_started = true;
+        hover_x = local_pos.pose.pose.position.x;
+        hover_y = local_pos.pose.pose.position.y;
+        hover_z = local_pos.pose.pose.position.z;
+        hover_yaw = yaw;
+    }
+    ros::Duration elapsed = ros::Time::now() - hover_last_time;
+    setpoint_raw.type_mask = /*1 + 2 + 4 */ +8 + 16 + 32 + 64 + 128 + 256 + 512 /*+ 1024 */ + 2048;
+    setpoint_raw.coordinate_frame = 1;
+    setpoint_raw.position.x = hover_x;
+    setpoint_raw.position.y = hover_y;
+    setpoint_raw.position.z = hover_z;
+    setpoint_raw.yaw = hover_yaw;
+    ROS_INFO("Hovering at (%.2f, %.2f, %.2f) for %.2f seconds", hover_x, hover_y, hover_z, elapsed.toSec());
+    // 如果已经过去超过 time_duration 秒，返回 true 并重置状态
+    if (elapsed.toSec() >= time_duration)
+    {
+        hover_started = false; // Reset for next hover
+        return true;
+    }
+    return false;
 }

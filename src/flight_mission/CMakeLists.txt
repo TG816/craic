@@ -93,7 +93,26 @@ add_executable(yolo
 target_link_libraries(yolo 
   mission_common  # 链接同一个库！
 )
+
+# 4. test_circle测试程序
+add_executable(test_circle 
+  src/test_circle.cpp
+)
+target_link_libraries(test_circle 
+  mission_common  # 链接同一个库！
+)
+
+# 5. test_ring 测试程序
+add_executable(test_ring
+  src/test_ring.cpp
+)
+target_link_libraries(test_ring 
+  mission_common  # 链接同一个库！
+)
+
 # ====================================================================
+
+
 
 # 运行时自动找到 ONNX 库（不报错）
 get_filename_component(ONNX_LIB_DIR ${ONNX_LIBRARY} DIRECTORY)
