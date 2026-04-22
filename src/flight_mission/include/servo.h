@@ -13,10 +13,9 @@
 // 舵机偏移参数（修复：std:: + inline 防止重复定义）
 inline std::vector<std::pair<float, float>> servo_offset = {
     {0.0, 0.0}, // 占位
-    {0.0, 0.0}, // front_left  1
-    {0.0, 0.0}, // front_right 2
-    {0.0, 0.0}, // back_left   3
-    {0.0, 0.0}  // back_right  4
+    {0.0, 0.0}, // back_left  1
+    {0.0, 0.0}, // back_right 2
+    {0.0, 0.0}, // front      3
 };
 
 class Servo
@@ -156,9 +155,10 @@ public:
 
     /**
      * @brief 通过数字编号控制舵机开关
-     * @param num 0-全部 1-左前 2-右前 3-左后 4-右后
+     * @param num 0-全部 1-左后 2-右后 3-前
      * @param mode open/close
      */
+
     void servo_control_num_better(int num, std::string mode = "open")
     {
         switch (num)
@@ -167,21 +167,43 @@ public:
             servo_all_control(mode);
             break;
         case 1:
-            servo_control_better("front_left", mode);
-            break;
-        case 2:
-            servo_control_better("front_right", mode);
-            break;
-        case 3:
             servo_control_better("back_left", mode);
             break;
-        case 4:
+        case 2:
             servo_control_better("back_right", mode);
+            break;
+        case 3:
+            servo_control_better("front_left", mode);
+            servo_control_better("front_right", mode);
             break;
         default:
             ROS_ERROR("Wrong servo_control num!\n");
         }
     }
+
+    // void servo_control_num_better(int num, std::string mode = "open")
+    // {
+    //     switch (num)
+    //     {
+    //     case 0:
+    //         servo_all_control(mode);
+    //         break;
+    //     case 1:
+    //         servo_control_better("front_left", mode);
+    //         break;
+    //     case 2:
+    //         servo_control_better("front_right", mode);
+    //         break;
+    //     case 3:
+    //         servo_control_better("back_left", mode);
+    //         break;
+    //     // case 4:
+    //     //     servo_control_better("back_right", mode);
+    //     //     break;
+    //     default:
+    //         ROS_ERROR("Wrong servo_control num!\n");
+    //     }
+    // }
 
     /**
      * @brief 直接发送角度值控制舵机
