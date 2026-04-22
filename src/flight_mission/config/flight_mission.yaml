@@ -19,3 +19,10 @@
   map_width: 10.0             # 地图宽度（米）
   map_length: 10.0            # 地图长度（米）
   
+
+  servo_offset_1_x: 0.0   # back_left
+  servo_offset_1_y: 0.025
+  servo_offset_2_x: 0.0   # back_right
+  servo_offset_2_y: -0.025
+  servo_offset_3_x: 0.05   # front
+  servo_offset_3_y: 0.0

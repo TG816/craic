@@ -4,6 +4,7 @@
 #include "vision_detection.h"
 #include "mission_callbacks.h"
 #include "mission_header.h"
+#include "servo.h"
 
 #define DELAY 1.0
 #define LEFT 90
@@ -14,13 +15,27 @@ int mission_num = 0;
 float if_debug = 0;
 float err_max = 0.2;
 bool delay = false;
+int servo_num = 1;
+int box_num = 0;  //已投货编号
 ros::Time last_request;
+float put_target_x = 0.0f, put_target_y = 0.0f;
 void print_param()
 {
     std::cout << "=== 控制参数 ===" << std::endl;
     std::cout << "err_max: " << err_max << std::endl;
     std::cout << "ALTITUDE: " << ALTITUDE << std::endl;
     std::cout << "if_debug: " << if_debug << std::endl;
+    cout << "===摄像头相关===" << endl;
+    cout << "fx: " << camera_matrix.at<double>(0, 0)
+         << ", fy: " << camera_matrix.at<double>(1, 1)
+         << ", cx: " << camera_matrix.at<double>(0, 2)
+         << ", cy: " << camera_matrix.at<double>(1, 2) 
+         << endl;
+    cout << "===舵机偏移===" << endl;
+    for (auto &it : servo_offset)
+    {
+        cout << it.first << ' ' << it.second << endl;
+    }
     if (if_debug == 1)
         cout << "自动offboard" << std::endl;
     else
@@ -76,6 +91,9 @@ int main(int argc, char **argv)
     // 新的多障碍物检测回调注册
     ros::Subscriber obstacles_detection_sub = nh.subscribe<cloud_recognition::Detection3DWithIDArray>("all_plane_3d_detections", 10, obstacles_detection_cb);
 
+    Servo servo_controller;
+    servo_controller.servo_init(nh);
+
     // 设置话题发布频率，需要大于2Hz，飞控连接有500ms的心跳包
     ros::Rate rate(20);
 
@@ -93,6 +111,19 @@ int main(int argc, char **argv)
     nh.param<float>("map_cellsize", map_cellsize, 0.10);
     nh.param<float>("map_width", map_width, 10.0);
     nh.param<float>("map_length", map_length, 10.0);
+    servo_offset = {
+        {0.0f, 0.0f}, // 占位
+        {0.0f, 0.0f}, // front_left
+        {0.0f, 0.0f}, // front_right
+        {0.0f, 0.0f}, // back_left
+        {0.0f, 0.0f}  // back_right
+    };
+    for (int i = 1; i <= 4; ++i)
+    {
+        std::string prefix = "servo_offset_" + std::to_string(i);
+        nh.param<float>(prefix + "_x", servo_offset[i].first, 0.0f);
+        nh.param<float>(prefix + "_y", servo_offset[i].second, 0.0f);
+    }
     print_param();
 
     // std::string cascade_path = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml";
@@ -203,7 +234,6 @@ int main(int argc, char **argv)
             if (mission_pos_cruise(0, 0, ALTITUDE, 0, err_max))
             {
                 Delay(DELAY);
-                //mission_num = 37;
             }
             break;
         case 2: //前进1米8 (1个我的距离)
@@ -213,64 +243,21 @@ int main(int argc, char **argv)
             }
             break;
 
-	    case 4: //准备转圈
-            if (mission_pos_cruise(1.8, 0, ALTITUDE, LEFT, err_max))
-            {
-                Delay(DELAY);
-		        //mission_num = 3;
-            }
-            break;
-
-    //     case 4: //穿环
-    //         if(Circle_around(COUNTS,TIMES,ALTITUDE,0.5,0.3,3.55,0, 0.8, 0.5))
-    //         {
-    //             Delay(1.0);
-    //             //mission_num = 37;
-    //             //mission_num = 4;
-    //         }
-    //         break;
-
-    //     case 5: //准备转圈
-    //         if (mission_pos_cruise(2.65, 0, ALTITUDE, 0, err_max))
-    //         {
-    //             Delay(0.5);
-    //             //mission_num = 37;
-    //         }
-    //         break;
-
-	// case 6: //准备转圈
-    //         if (collision_avoidance_mission(0, 0, ALTITUDE, 0, err_max))
-    //         {
-    //             //Delay(0.5);
-	// 	mission_num = 37;
-    //         }
-    //         break;
-
-        case 3: //扫码
+        case 3: // 扫码
             if (detectQRCodeAndExtractInfo())
             {
                 Delay(0.1); // 理论上完全可以Delay(0);
             }
             break;
-        /* 
 
-            //此处保留了原来的逻辑，需要对比时方便修改。
-
-        case 99: // 准备转圈
-            if (collision_avoidance_mission(3.7, 0.6, ALTITUDE, 0, err_max))
+        case 4: //前进
+            if (mission_pos_cruise(3.3, 0, ALTITUDE, 0, err_max))
             {
-                Delay(0.5);
+                Delay(1.0);
             }
             break;
 
-        case 5:
-            if (Circle_around(COUNTS, TIMES, err_max))
-            {
-                Delay(DELAY);
-            }
-            break;
-        */
-        case 5: //准备转圈
+        case 5: //转向
             if (collision_avoidance_mission(3.5, 0, ALTITUDE, LEFT, err_max))
             {
                 Delay(0.5);
@@ -292,233 +279,271 @@ int main(int argc, char **argv)
                                 当然，实际飞行考虑更多的因素，应结合实际条件多修改参数进行调整。
                             */
             {               
-                mission_num = 39;
-            }
-            break;
-
-        case 39:
-            if (collision_avoidance_mission(3.6, 1.6, ALTITUDE, 0, err_max))
-            {
-                //Delay(2);
                 mission_num = 7;
             }
             break;
 
-        //-------------------由此进入识别投掷模块-----------------------
+            /*
+            我真求你了别乱改case了，
+            注释与case全对不上
+            写了几个shell，要测试哪个板块直接启
+            */
+
         case 7:
+            if (collision_avoidance_mission(3.6, -1.6, ALTITUDE, 0, err_max))
+            {
+                Delay(0.5);
+            }
+            break;
+
+        //-------------------由此进入识别投掷模块-----------------------
+        case 8:
             if (onFrame(0, err_max))
             {
+                put_target_x = throw_pos.x - servo_offset[servo_num].first;
+                put_target_y = throw_pos.y - servo_offset[servo_num].second;
                 Delay(0.2);
             }
             break;
 
-        case 8:
-            if(isThrow == false) {mission_num = 11;break;}
-            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, LOW_ALTITUDE, 0, err_max))
+        case 9:
+            if(isThrow == false) {mission_num = 12;break;}
+            if (mission_pos_cruise(put_target_x, put_target_y, LOW_ALTITUDE, 0, err_max))
             {
                 Delay(1.0);
             }
             break;
 
-        case 9:
-            if (throwObject())
+        case 10:
+            servo_controller.servo_control_num_better(servo_num); // 投1货
+            if (lib_time_record_func(2.0, ros::Time::now()))
             {
-                Delay(0.1);
+                servo_num++; // 更新为下一个投掷位置的舵机编号
+                box_num++;   // 投货数++
+                mission_num = 10;
             }
             break;
 
-        case 10:
-            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, ALTITUDE, 0, err_max))
+        case 11:
+            if (mission_pos_cruise(put_target_x, put_target_y, ALTITUDE, 0, err_max))
             {
                 Delay(0.5);
                 isThrow = false;
             }
             break;
         
-        case 11:
-            if (collision_avoidance_mission(1.8, 1.6, ALTITUDE, 0, err_max))
-            {
-                Delay(2);
-            }
-            break;
-
         case 12:
-            if (onFrame(0, err_max))
-            {
-                Delay(0.2);
-            }
-            break;
-
-        case 13:
-            if(isThrow == false) {mission_num = 16;break;}
-            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, LOW_ALTITUDE, 0, err_max))
-            {
-                Delay(1.0);
-            }
-            break;
-
-        case 14:
-            if (throwObject())
-            {
-                Delay(0.1);
-            }
-            break;
-
-        case 15:
-            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, ALTITUDE, 0, err_max))
-            {
-                Delay(0.5);
-                isThrow = false;
-            }
-            break;
-
-        case 16:
-            if (collision_avoidance_mission(1.8, -1.6, ALTITUDE, 0, err_max))
-            {
-                Delay(2);
-            }
-            break;
-
-        case 17:
-            if (onFrame(0, err_max))
-            {
-                Delay(0.2);
-            }
-            break;
-
-        case 18:
-            if(isThrow == false) {mission_num = 21;break;}
-            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, LOW_ALTITUDE, 0, err_max))
-            {
-                Delay(1.0);
-            }
-            break;
-
-        case 19:
-            if (throwObject())
-            {
-                Delay(0.1);
-            }
-            break;
-
-        case 20:
-            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, ALTITUDE, 0, err_max))
-            {
-                Delay(0.5);
-                isThrow = false;
-            }
-            break;
-
-        case 21:
-            if (collision_avoidance_mission(3.6, -1.6, ALTITUDE, 0, err_max))
-            {
-                Delay(2);
-            }
-            break;
-
-        case 22:
-            if (onFrame(0, err_max))
-            {
-                Delay(0.2);
-            }
-            break;
-
-        case 23:
-            if(isThrow == false) {mission_num = 26;break;}
-            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, LOW_ALTITUDE, 0, err_max))
-            {
-                Delay(1.0);
-            }
-            break;
-
-        case 24:
-            if (throwObject())
-            {
-                Delay(0.1);
-            }
-            break;
-
-        case 25:
-            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, ALTITUDE, 0, err_max))
-            {
-                Delay(0.5);
-                isThrow = false;
-            }
-            break;
-
-        //-------------------由此进入穿环模块-----------------------
-
-        case 26:
-            if (collision_avoidance_mission(6.0, -2.4, ALTITUDE, 0, err_max))
+            if (mission_pos_cruise(1.8, -1.6, ALTITUDE, 0, err_max)) //改成定点了
             {
                 Delay(DELAY);
             }
             break;
 
-        case 27:
-            if (collision_avoidance_mission(6.0,-2.4, RING_ALTITUDE, LEFT, err_max))
+        case 13:
+            if (onFrame(0, err_max))
             {
+                put_target_x = throw_pos.x - servo_offset[servo_num].first;
+                put_target_y = throw_pos.y - servo_offset[servo_num].second;
                 Delay(0.2);
+            }
+            break;
+
+        case 14:
+            if(isThrow == false) {mission_num = 17;break;}
+            if (mission_pos_cruise(put_target_x, put_target_y, LOW_ALTITUDE, 0, err_max))
+            {
+                Delay(1.0);
+            }
+            break;
+
+        case 15:
+            servo_controller.servo_control_num_better(servo_num); // 投2货
+            if (lib_time_record_func(2.0, ros::Time::now()))
+            {
+                servo_num++; // 更新为下一个投掷位置的舵机编号
+                box_num++;   // 投货数++
+                mission_num = 16;
+            }
+            break;
+
+        case 16:
+            if (mission_pos_cruise(put_target_x, put_target_y, ALTITUDE, 0, err_max))
+            {
+                Delay(0.5);
+                isThrow = false;
+            }
+            break;
+
+        case 17:
+            if (mission_pos_cruise(1.8, 1.6, ALTITUDE, 0, err_max)) //定点
+            {
+                Delay(1);
+            }
+            break;
+
+        case 18:
+            if (box_num == 2) //已经投了两个货，最后两个必定不是
+            {
+                mission_num = 26;
+            }
+            else if (box_num == 0) //还没投货，最后两个必定是
+            {
+                isThrow = true;
+                mission_num = 19;
+            }else if(onFrame(0, err_max))
+                {
+                    put_target_x = throw_pos.x - servo_offset[servo_num].first;
+                    put_target_y = throw_pos.y - servo_offset[servo_num].second;
+                    Delay(0.2);
+                }
+            break;
+
+        case 19:
+            if(isThrow == false) {mission_num = 22;break;}
+            if (mission_pos_cruise(put_target_x, put_target_y, LOW_ALTITUDE, 0, err_max))
+            {
+                Delay(1.0);
+            }
+            break;
+
+        case 20:
+            servo_controller.servo_control_num_better(servo_num); // 投3货
+            if (lib_time_record_func(2.0, ros::Time::now()))
+            {
+                servo_num++; // 更新为下一个投掷位置的舵机编号
+                box_num++;   // 投货数++
+                mission_num = 21;
+            }
+            break;
+
+        case 21:
+            if (mission_pos_cruise(put_target_x, put_target_y, ALTITUDE, 0, err_max))
+            {
+                Delay(0.5);
+                isThrow = false;
+            }
+            break;
+
+        case 22:
+            if (mission_pos_cruise(3.6, 1.6, ALTITUDE, 0, err_max))
+            {
+                Delay(1);
+            }
+            break;
+
+        case 23:
+            if (box_num == 2) // 已经投了两个货，最后两个必定不是
+            {
+                mission_num = 26;
+            }
+            else // 还0（怎么可能啊哥们）/1个没投货，这个必定是
+            {
+                isThrow = true;
+                put_target_x = 3.6 - servo_offset[servo_num].first;
+                put_target_y = 1.6 - servo_offset[servo_num].second;
+                mission_num = 24;
+            }
+            /*识别滚蛋*/
+            break;
+
+        case 24:
+            if(isThrow == false) {mission_num = 27;break;}
+            if (mission_pos_cruise(put_target_x, put_target_y, LOW_ALTITUDE, 0, err_max))
+            {
+                Delay(1.0);
+            }
+            break;
+
+        case 25:
+            servo_controller.servo_control_num_better(servo_num); // 投4货
+            if (lib_time_record_func(2.0, ros::Time::now()))
+            {
+                servo_num++; // 更新为下一个投掷位置的舵机编号
+                box_num++;   // 投货数++
+                mission_num = 26;
+            }
+            break;
+
+        case 26:
+            if (mission_pos_cruise(3.6,1.6, ALTITUDE, 0, err_max))
+            {
+                Delay(0.5);
+                isThrow = false;
+            }
+            break;
+
+        case 27:
+            if (mission_pos_cruise(6.0, 1, ALTITUDE, 0, err_max))
+            {
+                Delay(DELAY);
             }
             break;
 
         case 28:
-            if (execute_universal_crossing(0.1))
+            if (detectBlackSquareAndThrow(0, err_max))
             {
-                Delay(0.2);
+                put_target_x = throw_pos.x - servo_offset[servo_num].first;
+                put_target_y = throw_pos.y - servo_offset[servo_num].second;
+                Delay(DELAY);
             }
             break;
 
         case 29:
-            if (collision_avoidance_mission(6.0, 1.0, ALTITUDE, LEFT, err_max))
+            if (mission_pos_cruise(put_target_x, put_target_y, LOW_ALTITUDE, 0, err_max))
             {
                 Delay(1.0);
             }
             break;
 
         case 30:
-            if (detectBlackSquareAndThrow(LEFT, err_max))
+            servo_controller.servo_control_num_better(servo_num); // 投5货
+            if (lib_time_record_func(2.0, ros::Time::now()))
             {
-                Delay(DELAY);
+                servo_num++; // 更新为下一个投掷位置的舵机编号
+                box_num++;   // 投货数++
+                mission_num = 21;
             }
             break;
 
         case 31:
-            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, LOW_ALTITUDE,LEFT, err_max))
+            if (mission_pos_cruise(6.0, 1.0,ALTITUDE, 0, err_max))
+            {
+                Delay(0.2);
+            }
+            break;
+            //-------------------由此进入穿环模块-----------------------
+
+        case 32:
+            if (mission_pos_cruise(6.0, -1.0, RING_ALTITUDE, 0, err_max))
+            {
+                Delay(0.2);
+            }
+            break;
+
+        case 33:
+            if (execute_universal_crossing(0.1))
+            {
+                Delay(0.2);
+            }
+            break;
+
+        case 34:
+            if (mission_pos_cruise(6.0, -2.3, ALTITUDE, LEFT, err_max))
             {
                 Delay(1.0);
             }
             break;
 
-        case 32:
-            if (throwObject())
-            {
-                Delay(0.1);
-            }
-            break;
-
-        case 33:
-            if (mission_pos_cruise(throw_pos.x ,throw_pos.y, ALTITUDE, 0, err_max))
+        case 35:
+            if (mission_pos_cruise(3.5, -1.6, ALTITUDE, 0, err_max))
             {
                 Delay(0.5);
                 isThrow = false;
             }
             break;
 
-        case 34:
-            if (collision_avoidance_mission(3.5, 1.0, ALTITUDE, LEFT, err_max))
-            {
-                Delay(DELAY);
-            }
-            break;
-        case 35:
-            if (collision_avoidance_mission(0, 1.6 * H_direction, ALTITUDE, LEFT, err_max))
-            {
-                Delay(0.2);
-            }
-            break;
         case 36:
-            if (collision_avoidance_mission(0, 1.6 * H_direction,0.5, 0, err_max))
+            if (mission_pos_cruise(0, 1.6 * H_direction, 0.5, 0, err_max))
             {
                 Delay(DELAY);
             }
