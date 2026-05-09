@@ -123,12 +123,11 @@ target_link_libraries(flag_recognition
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
 )
-
-# ========= 🔥 强制先生成消息头文件，再编译代码 =========
-add_dependencies(point_converter ${${PROJECT_NAME}_GENERATE_MESSAGES})
-add_dependencies(goal_generater  ${${PROJECT_NAME}_GENERATE_MESSAGES})
-add_dependencies(plane_extractor ${${PROJECT_NAME}_GENERATE_MESSAGES})
-add_dependencies(point_projector ${${PROJECT_NAME}_GENERATE_MESSAGES})
-add_dependencies(template_match ${${PROJECT_NAME}_GENERATE_MESSAGES})
-add_dependencies(flag_recognition ${${PROJECT_NAME}_GENERATE_MESSAGES})
+# ========= 🔥 修复版：先生成消息，再编译代码 =========
+add_dependencies(plane_extractor ${PROJECT_NAME}_generate_messages)
+add_dependencies(point_projector ${PROJECT_NAME}_generate_messages)
+add_dependencies(template_match ${PROJECT_NAME}_generate_messages)
+add_dependencies(point_converter ${PROJECT_NAME}_generate_messages)
+add_dependencies(goal_generater ${PROJECT_NAME}_generate_messages)
+add_dependencies(flag_recognition ${PROJECT_NAME}_generate_messages)
 

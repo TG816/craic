@@ -237,7 +237,7 @@ int main(int argc, char **argv)
             }
             break;
         case 2: //前进1米8 (1个我的距离)
-            if (collision_avoidance_mission(1.8, 0, ALTITUDE, 0, err_max))
+            if (collision_avoidance_mission(1.8, 0, 0.4, 0, err_max))
             {
                 Delay(DELAY);
             }
@@ -247,6 +247,8 @@ int main(int argc, char **argv)
             if (detectQRCodeAndExtractInfo())
             {
                 Delay(0.1); // 理论上完全可以Delay(0);
+            }else if(lib_time_record_func(5.0, ros::Time::now())){
+                mission_num = 4;
             }
             break;
 
@@ -265,7 +267,7 @@ int main(int argc, char **argv)
             break;
 
         case 6:
-            if (Circle_around(COUNTS,TIMES,ALTITUDE,0.5,0.3,4.3,0, 0.7, 0.5))
+            if (Circle_around(COUNTS,TIMES,ALTITUDE,0.8,0.5,4.3,0, 0.7, 0.5))
                             /* int counts, float times, float z_h, float v0, float v1, float cx, float cy, float r_of_c, float err_max   */
                             /*设定的总圈数，设定的总时间，  设定高度 ，切向速度 ，纠正速度，圆心x坐标，圆心y坐标，  圆半径，    误差*/
                             /*
@@ -283,7 +285,6 @@ int main(int argc, char **argv)
             }
             break;
 
-
         case 7:
             if (collision_avoidance_mission(3.6, -1.6, ALTITUDE, 0, err_max))
             {
@@ -293,8 +294,10 @@ int main(int argc, char **argv)
 
         //-------------------由此进入识别投掷模块-----------------------
         case 8:
-            if (onFrame(0, err_max))
+            if (1)
             {
+                throw_pos = {3.6, -1.6};
+                isThrow = true;
                 put_target_x = throw_pos.x - servo_offset[servo_num].first;
                 put_target_y = throw_pos.y - servo_offset[servo_num].second;
                 Delay(0.2);
@@ -319,6 +322,7 @@ int main(int argc, char **argv)
                 servo_controller.servo_control_num_better(servo_num); // 投1货
             }
             break;
+
         case 11:
             if (mission_pos_cruise(put_target_x, put_target_y, ALTITUDE, 0, err_max))
             {
@@ -337,6 +341,8 @@ int main(int argc, char **argv)
         case 13:
             if (onFrame(0, err_max))
             {
+		        throw_pos = {1.8, -1.6};
+		isThrow = true;
                 put_target_x = throw_pos.x - servo_offset[servo_num].first;
                 put_target_y = throw_pos.y - servo_offset[servo_num].second;
                 Delay(0.2);
@@ -386,8 +392,10 @@ int main(int argc, char **argv)
             {
                 isThrow = true;
                 mission_num = 19;
+		        throw_pos = {1.8, 1.6};
             }else if(onFrame(0, err_max))
                 {
+		            throw_pos = {1.8, 1.6};
                     put_target_x = throw_pos.x - servo_offset[servo_num].first;
                     put_target_y = throw_pos.y - servo_offset[servo_num].second;
                     Delay(0.2);
@@ -478,8 +486,9 @@ int main(int argc, char **argv)
             break;
 
         case 28:
-            if (detectBlackSquareAndThrow(0, err_max))
+            if (1)
             {
+		        throw_pos = {6.0, 1};
                 put_target_x = throw_pos.x - servo_offset[servo_num].first;
                 put_target_y = throw_pos.y - servo_offset[servo_num].second;
                 Delay(DELAY);
@@ -494,12 +503,13 @@ int main(int argc, char **argv)
             break;
 
         case 30:
-            servo_controller.servo_control_num_better(servo_num); // 投5货
             if (lib_time_record_func(2.0, ros::Time::now()))
             {
                 servo_num++; // 更新为下一个投掷位置的舵机编号
                 box_num++;   // 投货数++
-                mission_num = 21;
+                mission_num = 31;
+            }else{
+                servo_controller.servo_control_num_better(servo_num); // 投5货
             }
             break;
 
@@ -526,7 +536,7 @@ int main(int argc, char **argv)
             break;
 
         case 34:
-            if (mission_pos_cruise(6.0, -2.3, ALTITUDE, LEFT, err_max))
+            if (mission_pos_cruise(6.0, -2.3, ALTITUDE, 0, err_max))
             {
                 Delay(1.0);
             }

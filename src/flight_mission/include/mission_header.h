@@ -64,7 +64,7 @@ using namespace std;
 全局常量定义
 *************************************************************************/
 #define ALTITUDE 1.0f
-#define LOW_ALTITUDE 0.5f //待定
+#define LOW_ALTITUDE 0.2f //待定
 #define RING_ALTITUDE 1.45f  //由于仿真环境与真实比赛场地有差异，具体高度一定要进行实地考察 比赛改为 1.5/1.6
 #define MAX_X 6.6f
 #define MAX_Y -1.0f

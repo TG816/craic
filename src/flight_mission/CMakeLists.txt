@@ -122,6 +122,14 @@ target_link_libraries(test_ring
   mission_common  # 链接同一个库！
 )
 
+# 7. test_ring 测试程序
+add_executable(mytest
+  src/test.cpp
+)
+target_link_libraries(mytest
+  mission_common  # 链接同一个库！
+)
+
 # ====================================================================
 
 

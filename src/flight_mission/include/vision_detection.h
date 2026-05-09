@@ -10,7 +10,8 @@ cv::Mat getColorMask(const cv::Mat& frame, const cv::Scalar& low, const cv::Scal
 bool findBlackSquare(const cv::Mat& frame, cv::Point& black_center, cv::Rect& black_rect, float& angle);
 
 bool preciseClassify(const cv::Mat& frame, const cv::Rect& center_rect, 
-                     std::string& cls_name, float& conf);
+                     std::vector<std::string>& cls_names, 
+                     std::vector<float>& confs);
 bool detectQRCodeAndExtractInfo();
 UavDetectResult detectUavTarget();
 bool onFrame(float t_yaw,double err_max);

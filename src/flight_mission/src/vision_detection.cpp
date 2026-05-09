@@ -63,13 +63,13 @@ bool onFrame(float t_yaw, double err_max) {
     isThrow = true;
 
     float dx = throw_pos.x - drone_x;
-    float dy = throw_pos.x - drone_y;
+    float dy = throw_pos.y - drone_y;
 
-    // ROS_INFO("[onFrame] 识别到二维码目标 | 类别：%s | 靶子中心：(%.1f,%.1f) | 无人机位置：(%.1f,%.1f) | 偏移(x/y)：%.2f/%.2f",
-    //          det_res.class_name.c_str(), // 修复：target_class → class_name
-    //          throw_pos.x,throw_pos.y,
-    //          drone_x, drone_y,
-    //          dx, dy);
+    ROS_INFO("[onFrame] 识别到二维码目标 | 类别：%s | 靶子中心：(%.1f,%.1f) | 无人机位置：(%.1f,%.1f) | 偏移(x/y)：%.2f/%.2f",
+             det_res.class_name.c_str(), // 修复：target_class → class_name
+             throw_pos.x,throw_pos.y,
+             drone_x, drone_y,
+             dx, dy);
 
     return true;
 }
@@ -278,27 +278,31 @@ bool findInnerImageRect(const cv::Mat& frame, const cv::Point& gray_center, cons
 }
 
 // -------------------------- 适配后的ONNX分类函数 --------------------------
+// 传入 vector 存储：[cls1, cls2] 和 [conf1, conf2]
+// 完全不碰你的结构体！
 bool preciseClassify(const cv::Mat& frame, const cv::Rect& center_rect, 
-                     std::string& cls_name, float& conf) {
+                     std::vector<std::string>& cls_names, 
+                     std::vector<float>& confs) 
+{
     ROS_INFO("[preciseClassify] 开始精确分类 | 中心区域位置：(%d,%d) 尺寸：%dx%d | 置信度阈值：%f",
              center_rect.x, center_rect.y, center_rect.width, center_rect.height, CONF_THRESHOLD);
+    
+    // 清空传入的 vector
+    cls_names.clear();
+    confs.clear();
+
     if (center_rect.empty()) {
         ROS_WARN("[preciseClassify] 中心区域为空，分类失败");
         return false;
     }
+
     cv::Mat roi = frame(center_rect & cv::Rect(0,0,frame.cols,frame.rows));
-    //ROS_INFO("[preciseClassify] 截取ROI | ROI最终尺寸：%dx%d", roi.cols, roi.rows);
-    
-    // 预处理+ONNX推理
+
     cv::Mat resized, rgb;
     cv::resize(roi, resized, cv::Size(32,32));
     cv::cvtColor(resized, rgb, cv::COLOR_BGR2RGB);
     cv::Mat float_img;
     rgb.convertTo(float_img, CV_32F, 1.0/255.0);
-    
-    double min_val, max_val;
-    cv::minMaxLoc(float_img, &min_val, &max_val);
-    //ROS_DEBUG("[preciseClassify] 预处理完成 | 归一化后图像范围：%.2f~%.2f", min_val, max_val);
 
     std::vector<float> input_data(3*32*32);
     int idx = 0;
@@ -315,56 +319,61 @@ bool preciseClassify(const cv::Mat& frame, const cv::Rect& center_rect,
         static Ort::SessionOptions sess_opt;
         static Ort::Session sess(env, ONNX_MODEL_PATH.c_str(), sess_opt);
         
-        // 适配GPU/CPU
         if (USE_GPU) {
             sess_opt.AppendExecutionProvider_CUDA(OrtCUDAProviderOptions{});
-            //ROS_INFO("[preciseClassify] 使用GPU推理 | ONNX模型路径：%s", ONNX_MODEL_PATH.c_str());
-        } else {
-            //ROS_INFO("[preciseClassify] 使用CPU推理 | ONNX模型路径：%s", ONNX_MODEL_PATH.c_str());
         }
         
-        // 获取输入输出名
         auto in_name_allocated = sess.GetInputNameAllocated(0, Ort::AllocatorWithDefaultOptions());
         auto out_name_allocated = sess.GetOutputNameAllocated(0, Ort::AllocatorWithDefaultOptions());
         const char* in_name = in_name_allocated.get();
         const char* out_name = out_name_allocated.get();
-        ROS_DEBUG("[preciseClassify] ONNX输入名：%s | 输出名：%s", in_name, out_name);
         
         std::vector<int64_t> shape = {1,3,32,32};
         auto tensor = Ort::Value::CreateTensor<float>(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeCPU),
             input_data.data(), input_data.size(), shape.data(), shape.size());
         
         auto outputs = sess.Run({}, &in_name, &tensor, 1, &out_name, 1);
-        
         float* out_data = outputs[0].GetTensorMutableData<float>();
-        int top_idx = std::max_element(out_data, out_data+CIFAR100_CLASSES.size()) - out_data;
-        conf = out_data[top_idx];
-        cls_name = CIFAR100_CLASSES[top_idx];
-        
-        ROS_INFO("[preciseClassify] 分类完成 | 最高置信度类别：%s | 置信度：%f | 索引：%d",
-                 cls_name.c_str(), conf, top_idx);
-        return conf >= CONF_THRESHOLD;
-    } catch (const std::exception& e) {
+        int num_classes = CIFAR100_CLASSES.size();
+
+        // ====================== 取前两个置信度最高 ======================
+        std::vector<int> indices(num_classes);
+        std::iota(indices.begin(), indices.end(), 0);
+        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+            return out_data[a] > out_data[b];
+        });
+
+        int top1 = indices[0];
+        int top2 = indices[1];
+
+        // 塞进传入的 vector 里
+        cls_names.push_back(CIFAR100_CLASSES[top1]);
+        cls_names.push_back(CIFAR100_CLASSES[top2]);
+        confs.push_back(out_data[top1]);
+        confs.push_back(out_data[top2]);
+
+        ROS_INFO("[preciseClassify] TOP1: %s %.2f | TOP2: %s %.2f",
+                 cls_names[0].c_str(), confs[0], cls_names[1].c_str(), confs[1]);
+
+        return true;
+    } 
+    catch (const std::exception& e) {
         ROS_ERROR("[preciseClassify] ONNX推理异常：%s", e.what());
-        return false;
-    } catch (...) {
-        ROS_ERROR("[preciseClassify] ONNX推理未知异常");
         return false;
     }
 }
-
 // -------------------------- 核心检测函数（集成分类） --------------------------
 UavDetectResult detectUavTarget() {
-    UavDetectResult result;
+    UavDetectResult result; // 原来的结构体，完全不动！
     if (current_frame.empty()) return result;
 
     // 步骤1：找黑色正方形
-        cv::Point black_center; 
+    cv::Point black_center; 
     cv::Rect black_square;    
     float square_angle = 0.0f; 
     
-     if (!findBlackSquare(current_frame, black_center, black_square, square_angle)) {
-        ROS_WARN("[detectUavTarget] findBlackSquare 失败 | 未找到全图黑色方框");
+    if (!findBlackSquare(current_frame, black_center, black_square, square_angle)) {
+        ROS_WARN("[detectUavTarget] 未找到黑色方框");
         return result; 
     }
 
@@ -374,16 +383,33 @@ UavDetectResult detectUavTarget() {
         return result;
     }
 
-    // 步骤3：调用ONNX分类函数
-    std::string cls_name;
-    float conf = 0.0f;
-    if (preciseClassify(current_frame, inner_img_rect, cls_name, conf)) {
-        result.class_name = cls_name;
-        result.confidence = conf;
+    // 步骤3：用 vector 接收 TOP2 结果（不改结构体）
+    std::vector<std::string> cls_list;
+    std::vector<float> conf_list;
+    bool ok = preciseClassify(current_frame, inner_img_rect, cls_list, conf_list);
+
+    if (ok && cls_list.size() >= 2 && conf_list.size() >= 2) {
+        std::string top1_cls = cls_list[0];
+        std::string top2_cls = cls_list[1];
+        float top1_conf = conf_list[0];
+        float top2_conf = conf_list[1];
+
+        // ====================== 核心判断：前两个任意一个达标就算 ======================
+        bool hit1 = (std::find(g_qrcode_classes.begin(), g_qrcode_classes.end(), top1_cls) != g_qrcode_classes.end()) 
+                    && (top1_conf >= CONF_THRESHOLD);
+        
+        bool hit2 = (std::find(g_qrcode_classes.begin(), g_qrcode_classes.end(), top2_cls) != g_qrcode_classes.end()) 
+                    && (top2_conf >= CONF_THRESHOLD);
+
+        // 只要一个命中，就判定成功
+        result.is_detected = hit1 || hit2;
+        
+        // 你原来的字段，随便存 TOP1 就行（不影响逻辑）
+        result.class_name = top1_cls;
+        result.confidence = top1_conf;
     }
 
-    // 填充结果
-    result.is_detected = true;
+    // 其他字段正常赋值
     result.gray_ring_center = black_center;
     result.black_square = black_square;
     result.square_angle = square_angle;

@@ -218,7 +218,7 @@ bool Circle_around(int counts, float times, float z_h, float v0, float v1, float
             now_counts++;
             done = 0;
         }
-        if (done == 0 && fabs(local_pos.pose.pose.position.x - (cx - r_of_c)) > 2 * err_max && fabs(local_pos.pose.pose.position.y - cy) > 2 * err_max)
+        if (done == 0 && fabs(local_pos.pose.pose.position.x - (cx - r_of_c)) > 2 * err_max)
         {
             // 新增：标记圈开始执行时打印
             ROS_INFO("【圈数判定】离开起点超过2倍误差，标记当前圈执行中（done=1）");

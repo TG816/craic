@@ -36,7 +36,7 @@ tmux split-window -v -t ros_session:1
 # ======================================
 # 左下：servo 舵机启动
 # ======================================
-tmux send-keys -t ros_session:1.2 'sleep 7; roslaunch tutorial_catapult catapult_driver.launch' C-m
+tmux send-keys -t ros_session:1.2 'sleep 10; roslaunch tutorial_catapult catapult_driver.launch' C-m
 
 # 把左下窗格 向右切分 → 出来右下
 tmux split-window -h -t ros_session:1.2
@@ -44,7 +44,7 @@ tmux split-window -h -t ros_session:1.2
 # ======================================
 # 右下：flight_mission 飞行任务
 # ======================================
-tmux send-keys -t ros_session:1.3 'sleep 12; source ~/four/first_task_ws/devel/setup.bash; roslaunch flight_mission flight_mission.launch' C-m
+tmux send-keys -t ros_session:1.3 'sleep 15; source ~/four/first_task_ws/devel/setup.bash; roslaunch flight_mission test.launch' C-m
 
 # 布局对齐
 tmux select-layout -t ros_session:1 tiled
